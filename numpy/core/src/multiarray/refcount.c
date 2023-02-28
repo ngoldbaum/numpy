@@ -127,6 +127,12 @@ PyArray_Item_INCREF(char *data, PyArray_Descr *descr)
 {
     PyObject *temp;
 
+    // non-legacy dtypes are responsible for managing
+    // their own internal references
+    if (!NPY_DT_is_legacy(NPY_DTYPE(descr))) {
+        return;
+    }
+
     if (!PyDataType_REFCHK(descr)) {
         return;
     }
@@ -187,6 +193,12 @@ NPY_NO_EXPORT void
 PyArray_Item_XDECREF(char *data, PyArray_Descr *descr)
 {
     PyObject *temp;
+
+    // non-legacy dtypes are responsible for managing
+    // their own internal references
+    if (!NPY_DT_is_legacy(NPY_DTYPE(descr))) {
+        return;
+    }
 
     if (!PyDataType_REFCHK(descr)) {
         return;
