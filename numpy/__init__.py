@@ -291,7 +291,7 @@ else:
     __future_scalars__ = {"bool", "long", "ulong", "str", "bytes", "object"}
 
     # now that numpy core module is imported, can initialize limits
-    core.getlimits._register_known_types()
+    _core.getlimits._register_known_types()
 
     __all__ = list(
         __numpy_submodules__ | set(_core.__all__) | set(lib.__all__) | 
