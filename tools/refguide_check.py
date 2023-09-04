@@ -60,7 +60,7 @@ directives.register_directive('only', Only)
 BASE_MODULE = "numpy"
 
 PUBLIC_SUBMODULES = [
-    'core',
+    '_core',
     'f2py',
     'linalg',
     'lib',
@@ -94,7 +94,7 @@ DOCTEST_SKIPDICT = {
     'numpy.random.power': None,
     'numpy.random.zipf': None,
     # cases where NumPy docstrings import things from other 3'rd party libs:
-    'numpy.core.from_dlpack': None,
+    'numpy._core.from_dlpack': None,
     # remote / local file IO with DataSource is problematic in doctest:
     'numpy.lib.npyio.DataSource': None,
     'numpy.lib.Repository': None,
@@ -466,7 +466,7 @@ def validate_rst_syntax(text, name, dots=True):
 
     token = '<RST-VALIDATE-SYNTAX-CHECK>'
 
-    docutils.core.publish_doctree(
+    docutils._core.publish_doctree(
         text, token,
         settings_overrides = dict(halt_level=5,
                                   traceback=True,

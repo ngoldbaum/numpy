@@ -375,7 +375,7 @@ configure_file(
   install_tag: 'python-runtime'
 )
 
-subdir('core')
+subdir('_core')
 subdir('fft')
 subdir('linalg')
 subdir('random')
