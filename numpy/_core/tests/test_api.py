@@ -300,7 +300,9 @@ def test_object_array_astype_to_void():
     assert arr.dtype == "V8"
 
 @pytest.mark.parametrize("t",
-    np._core.sctypes['uint'] + np._core.sctypes['int'] + np._core.sctypes['float']
+    np._core.sctypes['uint'] + 
+    np._core.sctypes['int'] + 
+    np._core.sctypes['float']
 )
 def test_array_astype_warning(t):
     # test ComplexWarning when casting from complex to float or int

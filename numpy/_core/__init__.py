@@ -109,9 +109,9 @@ __all__ += getlimits.__all__
 __all__ += shape_base.__all__
 __all__ += einsumfunc.__all__
 
-# We used to use `np._core._ufunc_reconstruct` to unpickle. This is unnecessary,
-# but old pickles saved before 1.20 will be using it, and there is no reason
-# to break loading them.
+# We used to use `np._core._ufunc_reconstruct` to unpickle. 
+# This is unnecessary, but old pickles saved before 1.20 will be using it,
+# and there is no reason to break loading them.
 def _ufunc_reconstruct(module, name):
     # The `fromlist` kwarg is required to ensure that `mod` points to the
     # inner-most module rather than the parent package when module name is

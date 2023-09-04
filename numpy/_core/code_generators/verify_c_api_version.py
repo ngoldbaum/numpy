@@ -43,8 +43,8 @@ def check_api_version(apiversion):
         msg = ("API mismatch detected, the C API version "
                "numbers have to be updated. Current C api version is "
                f"{apiversion}, with checksum {curapi_hash}, but recorded "
-               f"checksum in _core/codegen_dir/cversions.txt is {api_hash}. If "
-               "functions were added in the C API, you have to update "
+               f"checksum in _core/codegen_dir/cversions.txt is {api_hash}. "
+               "If functions were added in the C API, you have to update "
                f"C_API_VERSION in {__file__}."
                )
         raise MismatchCAPIError(msg)

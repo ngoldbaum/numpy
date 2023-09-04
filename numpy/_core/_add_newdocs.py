@@ -80,7 +80,6 @@ add_newdoc('numpy._core', 'flatiter', ('base',
     """))
 
 
-
 add_newdoc('numpy._core', 'flatiter', ('coords',
     """
     An N-dimensional tuple of current coordinates.
@@ -97,7 +96,6 @@ add_newdoc('numpy._core', 'flatiter', ('coords',
     (0, 1)
 
     """))
-
 
 
 add_newdoc('numpy._core', 'flatiter', ('index',
@@ -152,7 +150,17 @@ add_newdoc('numpy._core', 'flatiter', ('copy',
 
 add_newdoc('numpy._core', 'nditer',
     """
-    nditer(op, flags=None, op_flags=None, op_dtypes=None, order='K', casting='safe', op_axes=None, itershape=None, buffersize=0)
+    nditer(
+        op, 
+        flags=None, 
+        op_flags=None, 
+        op_dtypes=None, 
+        order='K',
+        casting='safe', 
+        op_axes=None, 
+        itershape=None, 
+        buffersize=0
+    )
 
     Efficient multi-dimensional iterator object to iterate over arrays.
     To get started using this object, see the
@@ -3692,7 +3700,14 @@ add_newdoc('numpy._core.multiarray', 'ndarray', ('nonzero',
 
 add_newdoc('numpy._core.multiarray', 'ndarray', ('prod',
     """
-    a.prod(axis=None, dtype=None, out=None, keepdims=False, initial=1, where=True)
+    a.prod(
+        axis=None, 
+        dtype=None, 
+        out=None,
+        keepdims=False, 
+        initial=1, 
+        where=True
+    )
 
     Return the product of the array elements over the given axis
 
@@ -4831,8 +4846,8 @@ add_newdoc('numpy._core', 'ufunc', ('identity',
     """
     The identity value.
 
-    Data attribute containing the identity element for the ufunc, if it has one.
-    If it does not, the attribute value is None.
+    Data attribute containing the identity element for the ufunc, 
+    if it has one. If it does not, the attribute value is None.
 
     Examples
     --------
@@ -4855,8 +4870,8 @@ add_newdoc('numpy._core', 'ufunc', ('nargs',
 
     Notes
     -----
-    Typically this value will be one more than what you might expect because all
-    ufuncs take  the optional "out" argument.
+    Typically this value will be one more than what you might expect 
+    because all ufuncs take  the optional "out" argument.
 
     Examples
     --------
@@ -4896,7 +4911,7 @@ add_newdoc('numpy._core', 'ufunc', ('nout',
 
     Notes
     -----
-    Since all ufuncs can take output arguments, this will always be (at least) 1.
+    Since all ufuncs can take output arguments, this will always be at least 1.
 
     Examples
     --------
@@ -5821,8 +5836,8 @@ add_newdoc('numpy._core.multiarray', 'dtype', ('fields',
     If present, the optional title can be any object (if it is a string
     or unicode then it will also be a key in the fields dictionary,
     otherwise it's meta-data). Notice also that the first two elements
-    of the tuple can be passed directly as arguments to the ``ndarray.getfield``
-    and ``ndarray.setfield`` methods.
+    of the tuple can be passed directly as arguments to the 
+    ``ndarray.getfield`` and ``ndarray.setfield`` methods.
 
     See Also
     --------

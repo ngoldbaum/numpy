@@ -18,17 +18,24 @@ else:
     test_cdll = None
     if hasattr(sys, 'gettotalrefcount'):
         try:
-            cdll = load_library('_multiarray_umath_d', np._core._multiarray_umath.__file__)
+            cdll = load_library(
+                '_multiarray_umath_d', np._core._multiarray_umath.__file__
+            )
         except OSError:
             pass
         try:
-            test_cdll = load_library('_multiarray_tests', np._core._multiarray_tests.__file__)
+            test_cdll = load_library(
+                '_multiarray_tests', np._core._multiarray_tests.__file__
+            )
         except OSError:
             pass
     if cdll is None:
-        cdll = load_library('_multiarray_umath', np._core._multiarray_umath.__file__)
+        cdll = load_library(
+            '_multiarray_umath', np._core._multiarray_umath.__file__)
     if test_cdll is None:
-        test_cdll = load_library('_multiarray_tests', np._core._multiarray_tests.__file__)
+        test_cdll = load_library(
+            '_multiarray_tests', np._core._multiarray_tests.__file__
+        )
 
     c_forward_pointer = test_cdll.forward_pointer
 

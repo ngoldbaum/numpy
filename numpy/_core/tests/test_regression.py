@@ -464,17 +464,18 @@ class TestRegression:
 
             (np.array([9e123], dtype=np.float64),
              b"cnumpy._core.multiarray\n_reconstruct\np0\n(cnumpy\nndarray\n"
-             b"p1\n(I0\ntp2\nS'b'\np3\ntp4\nRp5\n(I1\n(I1\ntp6\ncnumpy\ndtype\n"
-             b"p7\n(S'f8'\np8\nI0\nI1\ntp9\nRp10\n(I3\nS'<'\np11\nNNNI-1\nI-1\n"
-             b"I0\ntp12\nbI00\nS'O\\x81\\xb7Z\\xaa:\\xabY'\np13\ntp14\nb."),
+             b"p1\n(I0\ntp2\nS'b'\np3\ntp4\nRp5\n(I1\n(I1\ntp6\ncnumpy\ndtyp"
+             b"e\np7\n(S'f8'\np8\nI0\nI1\ntp9\nRp10\n(I3\nS'<'\np11\nNNNI-1"
+             b"\nI-1\nI0\ntp12\nbI00\nS'O\\x81\\xb7Z\\xaa:\\xabY'\np13\ntp14"
+             b"\nb."),
 
             (np.array([(9e123,)], dtype=[('name', float)]),
-             b"cnumpy._core.multiarray\n_reconstruct\np0\n(cnumpy\nndarray\np1\n"
-             b"(I0\ntp2\nS'b'\np3\ntp4\nRp5\n(I1\n(I1\ntp6\ncnumpy\ndtype\np7\n"
-             b"(S'V8'\np8\nI0\nI1\ntp9\nRp10\n(I3\nS'|'\np11\nN(S'name'\np12\ntp13\n"
-             b"(dp14\ng12\n(g7\n(S'f8'\np15\nI0\nI1\ntp16\nRp17\n(I3\nS'<'\np18\nNNNI-1\n"
-             b"I-1\nI0\ntp19\nbI0\ntp20\nsI8\nI1\nI0\ntp21\n"
-             b"bI00\nS'O\\x81\\xb7Z\\xaa:\\xabY'\np22\ntp23\nb."),
+             b"cnumpy._core.multiarray\n_reconstruct\np0\n(cnumpy\nndarray\n"
+             b"p1\n(I0\ntp2\nS'b'\np3\ntp4\nRp5\n(I1\n(I1\ntp6\ncnumpy\ndtyp"
+             b"e\np7\n(S'V8'\np8\nI0\nI1\ntp9\nRp10\n(I3\nS'|'\np11\nN(S'nam"
+             b"e'\np12\ntp13\n(dp14\ng12\n(g7\n(S'f8'\np15\nI0\nI1\ntp16\nRp"
+             b"17\n(I3\nS'<'\np18\nNNNI-1\nI-1\nI0\ntp19\nbI0\ntp20\nsI8\nI1"
+             b"\nI0\ntp21\nbI00\nS'O\\x81\\xb7Z\\xaa:\\xabY'\np22\ntp23\nb."),
         ]
 
         for original, data in test_data:
@@ -1484,7 +1485,10 @@ class TestRegression:
         from hashlib import sha256
 
         x = np.array([1, 2, 3], dtype=np.dtype('<i4'))
-        assert_equal(sha256(x).hexdigest(), '4636993d3e1da4e9d6b8f87b79e8f7c6d018580d52661950eabc3845c5897a4d')
+        assert_equal(
+            sha256(x).hexdigest(), 
+            '4636993d3e1da4e9d6b8f87b79e8f7c6d018580d52661950eabc3845c5897a4d'
+        )
 
     def test_0d_string_scalar(self):
         # Bug #1436; the following should succeed
@@ -1919,10 +1923,10 @@ class TestRegression:
         # encoding='latin1' work correctly.
 
         # Python2 output for pickle.dumps(numpy.array([129], dtype='b'))
-        data = (b"cnumpy._core.multiarray\n_reconstruct\np0\n(cnumpy\nndarray\np1\n(I0\n"
-                b"tp2\nS'b'\np3\ntp4\nRp5\n(I1\n(I1\ntp6\ncnumpy\ndtype\np7\n(S'i1'\np8\n"
-                b"I0\nI1\ntp9\nRp10\n(I3\nS'|'\np11\nNNNI-1\nI-1\nI0\ntp12\nbI00\nS'\\x81'\n"
-                b"p13\ntp14\nb.")
+        data = (b"cnumpy._core.multiarray\n_reconstruct\np0\n(cnumpy\nndarray"
+                b"\np1\n(I0\ntp2\nS'b'\np3\ntp4\nRp5\n(I1\n(I1\ntp6\ncnumpy"
+                b"\ndtype\np7\n(S'i1'\np8\nI0\nI1\ntp9\nRp10\n(I3\nS'|'\np11"
+                b"\nNNNI-1\nI-1\nI0\ntp12\nbI00\nS'\\x81'\np13\ntp14\nb.")
         # This should work:
         result = pickle.loads(data, encoding='latin1')
         assert_array_equal(result, np.array([129]).astype('b'))
@@ -1943,15 +1947,16 @@ class TestRegression:
              'invalid'),
 
             (np.float64(9e123),
-             (b"cnumpy._core.multiarray\nscalar\np0\n(cnumpy\ndtype\np1\n(S'f8'\n"
-              b"p2\nI0\nI1\ntp3\nRp4\n(I3\nS'<'\np5\nNNNI-1\nI-1\nI0\ntp6\n"
-              b"bS'O\\x81\\xb7Z\\xaa:\\xabY'\np7\ntp8\nRp9\n."),
+             (b"cnumpy._core.multiarray\nscalar\np0\n(cnumpy\ndtype\np1\n"
+              b"(S'f8'\np2\nI0\nI1\ntp3\nRp4\n(I3\nS'<'\np5\nNNNI-1\nI-1\n"
+              b"I0\ntp6\nbS'O\\x81\\xb7Z\\xaa:\\xabY'\np7\ntp8\nRp9\n."),
              'invalid'),
 
-            (np.bytes_(b'\x9c'),  # different 8-bit code point in KOI8-R vs latin1
-             (b"cnumpy._core.multiarray\nscalar\np0\n(cnumpy\ndtype\np1\n(S'S1'\np2\n"
-              b"I0\nI1\ntp3\nRp4\n(I3\nS'|'\np5\nNNNI1\nI1\nI0\ntp6\nbS'\\x9c'\np7\n"
-              b"tp8\nRp9\n."),
+            # different 8-bit code point in KOI8-R vs latin1
+            (np.bytes_(b'\x9c'),  
+             (b"cnumpy._core.multiarray\nscalar\np0\n(cnumpy\ndtype\np1\n"
+              b"(S'S1'\np2\nI0\nI1\ntp3\nRp4\n(I3\nS'|'\np5\nNNNI1\nI1\nI0"
+              b"\ntp6\nbS'\\x9c'\np7\ntp8\nRp9\n."),
              'different'),
         ]
         for original, data, koi8r_validity in datas:

@@ -290,26 +290,28 @@ def test_policy_propagation(get_module):
 
 
 async def concurrent_context1(get_module, orig_policy_name, event):
+    from numpy._core.multiarray import get_handler_name
     if orig_policy_name == 'default_allocator':
         get_module.set_secret_data_policy()
-        assert np._core.multiarray.get_handler_name() == 'secret_data_allocator'
+        assert get_handler_name() == 'secret_data_allocator'
     else:
         get_module.set_old_policy(None)
-        assert np._core.multiarray.get_handler_name() == 'default_allocator'
+        assert get_handler_name() == 'default_allocator'
     event.set()
 
 
 async def concurrent_context2(get_module, orig_policy_name, event):
+    from numpy._core.multiarray import get_handler_name
     await event.wait()
     # the policy is not affected by changes in parallel contexts
-    assert np._core.multiarray.get_handler_name() == orig_policy_name
+    assert get_handler_name() == orig_policy_name
     # change policy in the child context
     if orig_policy_name == 'default_allocator':
         get_module.set_secret_data_policy()
-        assert np._core.multiarray.get_handler_name() == 'secret_data_allocator'
+        assert get_handler_name() == 'secret_data_allocator'
     else:
         get_module.set_old_policy(None)
-        assert np._core.multiarray.get_handler_name() == 'default_allocator'
+        assert get_handler_name() == 'default_allocator'
 
 
 async def async_test_context_locality(get_module):

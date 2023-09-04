@@ -1004,14 +1004,14 @@ def array(obj, dtype=None, shape=None, offset=0, strides=None, formats=None,
            [4, 5, 6],
            [7, 8, 9]])
 
-    >>> np._core.records.array(a)
+    >>> np.rec.array(a)
     rec.array([[1, 2, 3],
                [4, 5, 6],
                [7, 8, 9]],
         dtype=int32)
 
     >>> b = [(1, 1), (2, 4), (3, 9)]
-    >>> c = np._core.records.array(b, formats = ['i2', 'f2'], names = ('x', 'y'))
+    >>> c = np.rec.array(b, formats = ['i2', 'f2'], names = ('x', 'y'))
     >>> c
     rec.array([(1, 1.0), (2, 4.0), (3, 9.0)],
               dtype=[('x', '<i2'), ('y', '<f2')])
