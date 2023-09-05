@@ -23,6 +23,8 @@ def check_dir(module, module_name=None):
         module_name = module.__name__
     results = {}
     for name in dir(module):
+        if name == "core":
+            continue
         item = getattr(module, name)
         if (hasattr(item, '__module__') and hasattr(item, '__name__')
                 and item.__module__ != module_name):
@@ -163,21 +165,7 @@ PRIVATE_BUT_PRESENT_MODULES = ['numpy.' + s for s in [
     "compat",
     "compat.py3k",
     "conftest",
-    "_core",
-    "_core.arrayprint",
-    "_core.defchararray",
-    "_core.einsumfunc",
-    "_core.fromnumeric",
-    "_core.function_base",
-    "_core.getlimits",
-    "_core.memmap",
-    "_core.multiarray",
-    "_core.numeric",
-    "_core.numerictypes",
-    "_core.overrides",
-    "_core.records",
-    "_core.shape_base",
-    "_core.umath",
+    "core",
     "f2py.auxfuncs",
     "f2py.capi_maps",
     "f2py.cb_rules",

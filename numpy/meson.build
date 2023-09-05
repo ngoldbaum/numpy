@@ -260,6 +260,7 @@ pure_subdirs = [
   'typing',
   'rec',
   'char'
+  'core'
 ]
 if py.version().version_compare('<3.12')
   pure_subdirs += 'distutils'
