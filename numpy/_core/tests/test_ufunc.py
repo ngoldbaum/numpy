@@ -205,8 +205,15 @@ class TestUfunc:
 
             # Check that ufunc not defined in the top level numpy namespace
             # such as numpy._core._rational_tests.test_add can also be pickled
-            res = pickle.loads(pickle.dumps(_rational_tests.test_add,
-                                            protocol=proto))
+
+            # TODO: This warning needs more research on why is being raised
+            with suppress_warnings() as sup:
+                sup.filter(
+                    DeprecationWarning, 
+                    "`numpy.core` has been made officially private"
+                )
+                res = pickle.loads(pickle.dumps(_rational_tests.test_add,
+                                                protocol=proto))
             assert_(res is _rational_tests.test_add)
 
     def test_pickle_withstring(self):
@@ -224,7 +231,14 @@ class TestUfunc:
         # possible add a specific qualname, or a hook into pickling instead
         # (dask+numba may benefit).
         _pickleable_module_global.ufunc = umt._pickleable_module_global_ufunc
-        obj = pickle.loads(pickle.dumps(_pickleable_module_global.ufunc))
+
+        # TODO: This warning needs more research on why is being raised
+        with suppress_warnings() as sup:
+            sup.filter(
+                    DeprecationWarning, 
+                    "`numpy.core` has been made officially private"
+                )
+            obj = pickle.loads(pickle.dumps(_pickleable_module_global.ufunc))
         assert obj is umt._pickleable_module_global_ufunc
 
     def test_reduceat_shifting_sum(self):
