@@ -2,7 +2,8 @@ from numpy import _core
 from ._utils import _raise_warning
 
 
-def __getattr__(attr):
+def __getattr__(attr_name):
 
-    _raise_warning(attr)
-    return getattr(_core, attr)
+    attr = getattr(_core, attr_name)
+    _raise_warning(attr_name)
+    return attr
