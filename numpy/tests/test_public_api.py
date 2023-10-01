@@ -277,23 +277,10 @@ def is_unexpected(name):
     return True
 
 
-# These are present in a directory with an __init__.py but cannot be imported
-# code_generators/ isn't installed, but present for an inplace build
-SKIP_LIST = [
-    "numpy._core.code_generators",
-    "numpy._core.code_generators.genapi",
-    "numpy._core.code_generators.generate_umath",
-    "numpy._core.code_generators.ufunc_docstrings",
-    "numpy._core.code_generators.generate_numpy_api",
-    "numpy._core.code_generators.generate_ufunc_api",
-    "numpy._core.code_generators.numpy_api",
-    "numpy._core.code_generators.generate_umath_doc",
-    "numpy._core.code_generators.verify_c_api_version",
-    "numpy._core.cversions",
-    "numpy._core.generate_numpy_api",
-]
 if sys.version_info < (3, 12):
-    SKIP_LIST += ["numpy.distutils.msvc9compiler"]
+    SKIP_LIST = ["numpy.distutils.msvc9compiler"]
+else:
+    SKIP_LIST = []
 
 
 # suppressing warnings from deprecated modules

@@ -355,10 +355,6 @@ import_experimental_dtype_api(int version)
     }
 
     PyObject *multiarray = PyImport_ImportModule("numpy._core._multiarray_umath");
-    if (multiarray == NULL && PyErr_ExceptionMatches(PyExc_ModuleNotFoundError)) {
-        PyErr_Clear();
-        multiarray = PyImport_ImportModule("numpy.core._multiarray_umath");
-    }
 
     if (multiarray == NULL) {
         return -1;
