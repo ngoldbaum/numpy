@@ -166,9 +166,7 @@ copyreg.pickle(ufunc, _ufunc_reduce)
 copyreg.pickle(type(dtype), _DType_reduce, _DType_reconstruct)
 
 # Unclutter namespace (must keep _*_reconstruct for unpickling)
-del copyreg
-del _ufunc_reduce
-del _DType_reduce
+del copyreg, warnings, _ufunc_reduce, _DType_reduce
 
 from numpy._pytesttester import PytestTester
 test = PytestTester(__name__)

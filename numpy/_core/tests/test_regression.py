@@ -1918,12 +1918,17 @@ class TestRegression:
             bytestring = "\x01  ".encode('ascii')
             assert_equal(bytestring[0:1], '\x01'.encode('ascii'))
 
+    @pytest.mark.filterwarnings(
+        "ignore:"
+        "`numpy.core` has been made officially private:"
+        "DeprecationWarning"
+    )
     def test_pickle_py2_array_latin1_hack(self):
         # Check that unpickling hacks in Py3 that support
         # encoding='latin1' work correctly.
 
         # Python2 output for pickle.dumps(numpy.array([129], dtype='b'))
-        data = (b"cnumpy._core.multiarray\n_reconstruct\np0\n(cnumpy\nndarray"
+        data = (b"cnumpy.core.multiarray\n_reconstruct\np0\n(cnumpy\nndarray"
                 b"\np1\n(I0\ntp2\nS'b'\np3\ntp4\nRp5\n(I1\n(I1\ntp6\ncnumpy"
                 b"\ndtype\np7\n(S'i1'\np8\nI0\nI1\ntp9\nRp10\n(I3\nS'|'\np11"
                 b"\nNNNI-1\nI-1\nI0\ntp12\nbI00\nS'\\x81'\np13\ntp14\nb.")
@@ -1933,6 +1938,11 @@ class TestRegression:
         # Should not segfault:
         assert_raises(Exception, pickle.loads, data, encoding='koi8-r')
 
+    @pytest.mark.filterwarnings(
+        "ignore:"
+        "`numpy.core` has been made officially private:"
+        "DeprecationWarning"
+    )
     def test_pickle_py2_scalar_latin1_hack(self):
         # Check that scalar unpickling hack in Py3 that supports
         # encoding='latin1' work correctly.
@@ -1941,20 +1951,20 @@ class TestRegression:
         datas = [
             # (original, python2_pickle, koi8r_validity)
             (np.str_('\u6bd2'),
-             (b"cnumpy._core.multiarray\nscalar\np0\n(cnumpy\ndtype\np1\n"
+             (b"cnumpy.core.multiarray\nscalar\np0\n(cnumpy\ndtype\np1\n"
               b"(S'U1'\np2\nI0\nI1\ntp3\nRp4\n(I3\nS'<'\np5\nNNNI4\nI4\nI0\n"
               b"tp6\nbS'\\xd2k\\x00\\x00'\np7\ntp8\nRp9\n."),
              'invalid'),
 
             (np.float64(9e123),
-             (b"cnumpy._core.multiarray\nscalar\np0\n(cnumpy\ndtype\np1\n"
+             (b"cnumpy.core.multiarray\nscalar\np0\n(cnumpy\ndtype\np1\n"
               b"(S'f8'\np2\nI0\nI1\ntp3\nRp4\n(I3\nS'<'\np5\nNNNI-1\nI-1\n"
               b"I0\ntp6\nbS'O\\x81\\xb7Z\\xaa:\\xabY'\np7\ntp8\nRp9\n."),
              'invalid'),
 
             # different 8-bit code point in KOI8-R vs latin1
             (np.bytes_(b'\x9c'),  
-             (b"cnumpy._core.multiarray\nscalar\np0\n(cnumpy\ndtype\np1\n"
+             (b"cnumpy.core.multiarray\nscalar\np0\n(cnumpy\ndtype\np1\n"
               b"(S'S1'\np2\nI0\nI1\ntp3\nRp4\n(I3\nS'|'\np5\nNNNI1\nI1\nI0"
               b"\ntp6\nbS'\\x9c'\np7\ntp8\nRp9\n."),
              'different'),
