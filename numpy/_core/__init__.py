@@ -7,7 +7,6 @@ are available in the main ``numpy`` namespace - use that instead.
 """
 
 import os
-import warnings
 
 from numpy.version import version as __version__
 
@@ -152,6 +151,7 @@ def _DType_reduce(DType):
 def __getattr__(name):
     # Deprecated 2022-11-22, NumPy 1.25.
     if name == "MachAr":
+        import warnings
         warnings.warn(
             "The `np._core.MachAr` is considered private API (NumPy 1.24)",
             DeprecationWarning, stacklevel=2,
@@ -166,7 +166,7 @@ copyreg.pickle(ufunc, _ufunc_reduce)
 copyreg.pickle(type(dtype), _DType_reduce, _DType_reconstruct)
 
 # Unclutter namespace (must keep _*_reconstruct for unpickling)
-del copyreg, warnings, _ufunc_reduce, _DType_reduce
+del copyreg, _ufunc_reduce, _DType_reduce
 
 from numpy._pytesttester import PytestTester
 test = PytestTester(__name__)
