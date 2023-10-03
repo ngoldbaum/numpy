@@ -822,7 +822,7 @@ def read_array(fp, allow_pickle=False, pickle_kwargs=None, *,
         if pickle_kwargs is None:
             pickle_kwargs = {}
         try:
-            array = pickle.load(fp, **pickle_kwargs)
+            array = NumpyUnpickler(fp, **pickle_kwargs).load()
         except UnicodeError as err:
             # Friendlier error message
             raise UnicodeError("Unpickling a python object failed: %r\n"

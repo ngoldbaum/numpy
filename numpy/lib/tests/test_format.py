@@ -537,11 +537,6 @@ def test_python2_python3_interoperability():
     assert_array_equal(data, np.ones(2))
 
 
-@pytest.mark.filterwarnings(
-        "ignore:"
-        "`numpy.core` has been made officially private:"
-        "DeprecationWarning"
-)
 def test_pickle_python2_python3():
     # Test that loading object arrays saved on Python 2 works both on
     # Python 2 and Python 3 and vice versa
