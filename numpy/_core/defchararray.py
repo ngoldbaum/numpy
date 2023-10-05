@@ -862,7 +862,7 @@ def isalpha(a):
     --------
     str.isalpha
     """
-    return numpy.core.umath.isalpha(a)
+    return numpy._core.umath.isalpha(a)
 
 
 @array_function_dispatch(_unary_op_dispatcher)
