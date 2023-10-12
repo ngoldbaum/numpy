@@ -30,8 +30,6 @@ static void **PyUFunc_API=NULL;
 
 %s
 
-#include "numpy/utils.h"
-
 static inline int
 _import_umath(void)
 {
