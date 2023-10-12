@@ -170,7 +170,7 @@ import numpy
 from numpy.lib._utils_impl import drop_metadata
 
 
-__all__ = ["NumpyUnpickler"]
+__all__ = []
 
 
 EXPECTED_KEYS = {'descr', 'fortran_order', 'shape'}
@@ -822,7 +822,7 @@ def read_array(fp, allow_pickle=False, pickle_kwargs=None, *,
         if pickle_kwargs is None:
             pickle_kwargs = {}
         try:
-            array = NumpyUnpickler(fp, **pickle_kwargs).load()
+            array = pickle.load(fp, **pickle_kwargs)
         except UnicodeError as err:
             # Friendlier error message
             raise UnicodeError("Unpickling a python object failed: %r\n"
@@ -1011,15 +1011,3 @@ def isfileobj(f):
         return True
     except OSError:
         return False
-
-
-class NumpyUnpickler(pickle.Unpickler):
-    """
-    A thin wrapper for :py:class:`pickle.Unpickler` that
-    allows to load 1.x array pickles with numpy 2.0.
-    """
-
-    def find_class(self, module: str, name: str) -> object:
-        if module.startswith("numpy.core"):
-            module = module.replace("core", "_core", 1)
-        return pickle.Unpickler.find_class(self, module, name)

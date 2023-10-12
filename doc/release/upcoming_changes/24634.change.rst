@@ -10,5 +10,5 @@ using private NumPy internals. You can still access these internals via
 backward compatibility guarantees for NumPy internals. Please open an issue
 if you think a mistake was made and something needs to be made public.
 
-Also, ``numpy.lib.format.NumpyUnpickler`` was added to provide a stable way
-for loading pickled arrays with a ``dtype=object``, created with NumPy 1.x.
+Also, ``numpy.core`` stubs were added to provide a stable way for loading
+pickled arrays, created with NumPy 1.x.

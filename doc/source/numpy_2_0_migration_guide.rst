@@ -156,24 +156,9 @@ setitem                 Use ``arr[index] = value`` instead.
 ======================  ========================================================
 
 
-NumpyUnpickler
---------------
+Note about pickled files
+------------------------
 
-Pickled arrays with object dtype created with NumPy 1.x contain a reference to
-the deprecated ``numpy.core``. ``np.load`` is adjusted to load these files.
-If a user needs to load a NumPy 1.x file with the ``pickle`` module directly,
-they are required to use ``numpy.lib.format.NumpyUnpickler``::
-
-  >>> import io, pickle
-  >>> from numpy.lib.format import NumpyUnpickler
-  >>>
-  >>> # mock files for the example
-  >>> old_pickle_file = io.BytesIO()
-  >>> pickle.dump(np.ones(3), old_pickle_file)
-  >>> old_pickle_file.seek(0)
-  0
-  >>> new_pickle_file = io.BytesIO()
-  >>>
-  >>> arr = NumpyUnpickler(old_pickle_file).load()  # equivalent to pickle.load(file)
-  >>> # save a new pickle file that doesn't need to be loaded with NumpyUnpickler:
-  >>> pickle.Pickler(new_pickle_file).dump(arr)
+NumPy 2.0 is designed to load pickle files created with NumPy 1.26,
+and vice versa. For versions 1.25 and earlier loading NumPy 2.0
+pickle file will throw an exception.

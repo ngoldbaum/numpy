@@ -1,7 +1,4 @@
 from numpy._core import numerictypes
-from ._utils import _raise_warning
-
-_raise_warning("*")
 
 _globals = globals()
 

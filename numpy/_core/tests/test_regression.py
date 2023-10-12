@@ -18,7 +18,6 @@ from numpy.testing import (
         )
 from numpy.testing._private.utils import _no_tracing, requires_memory
 from numpy._utils import asbytes, asunicode
-from numpy.lib.format import NumpyUnpickler
 
 
 class TestRegression:
@@ -1921,7 +1920,7 @@ class TestRegression:
         # Python2 output for pickle.dumps(numpy.array([129], dtype='b'))
         data = b"cnumpy.core.multiarray\n_reconstruct\np0\n(cnumpy\nndarray\np1\n(I0\ntp2\nS'b'\np3\ntp4\nRp5\n(I1\n(I1\ntp6\ncnumpy\ndtype\np7\n(S'i1'\np8\nI0\nI1\ntp9\nRp10\n(I3\nS'|'\np11\nNNNI-1\nI-1\nI0\ntp12\nbI00\nS'\\x81'\np13\ntp14\nb."  # noqa
         # This should work:
-        result = NumpyUnpickler(BytesIO(data), encoding='latin1').load()
+        result = pickle.loads(data, encoding='latin1')
         assert_array_equal(result, np.array([129]).astype('b'))
         # Should not segfault:
         assert_raises(Exception, pickle.loads, data, encoding='koi8-r')
@@ -1947,7 +1946,7 @@ class TestRegression:
              'different'),
         ]
         for original, data, koi8r_validity in datas:
-            result = NumpyUnpickler(BytesIO(data), encoding='latin1').load()
+            result = pickle.loads(data, encoding='latin1')
             assert_equal(result, original)
 
             # Decoding under non-latin1 encoding (e.g.) KOI8-R can
@@ -1956,17 +1955,14 @@ class TestRegression:
                 # Unicode code points happen to lie within latin1,
                 # but are different in koi8-r, resulting to silent
                 # bogus results
-                result = NumpyUnpickler(
-                    BytesIO(data), encoding='koi8-r'
-                ).load()
+                result = pickle.loads(data, encoding='koi8-r')
                 assert_(result != original)
             elif koi8r_validity == 'invalid':
                 # Unicode code points outside latin1, so results
                 # to an encoding exception
-                invalid_unpickler = NumpyUnpickler(
-                    BytesIO(data), encoding='koi8-r'
+                assert_raises(
+                    ValueError, pickle.loads, data, encoding='koi8-r'
                 )
-                assert_raises(ValueError, invalid_unpickler.load)
             else:
                 raise ValueError(koi8r_validity)
 
