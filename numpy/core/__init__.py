@@ -19,8 +19,14 @@ def _ufunc_reconstruct(module, name):
     return getattr(mod, name)
 
 
-def __getattr__(attr_name):
+# force lazy-loading of submodules to ensure a warning is printed
 
+__all__ = ["arrayprint", "defchararray", "_dtype_ctypes", "_dtype",
+           "einsumfunc", "fromnumeric", "function_base", "getlimits",
+           "_internal", "multiarray", "_multiarray_umath", "numeric",
+           "numerictypes", "overrides", "records", "shape_base", "umath"]
+
+def __getattr__(attr_name):
     attr = getattr(_core, attr_name)
     _raise_warning(attr_name)
     return attr

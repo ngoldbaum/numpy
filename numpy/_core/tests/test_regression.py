@@ -2548,3 +2548,11 @@ class TestRegression:
         with pytest.raises(TypeError, match="not an acceptable base type"):
             class X(np.flexible, np.ma.core.MaskedArray):
                 pass
+
+    def test_load_ufunc_pickle(self):
+        # ufuncs are pickled with a semi-private path in
+        # numpy.core._multiarray_umath and must be loadable without warning
+        # despite np.core being deprecated.
+        test_data = b'\x80\x04\x95(\x00\x00\x00\x00\x00\x00\x00\x8c\x1cnumpy.core._multiarray_umath\x94\x8c\x03add\x94\x93\x94.'  # noqa
+        result = pickle.loads(test_data, encoding='bytes')
+        assert result is np.add
