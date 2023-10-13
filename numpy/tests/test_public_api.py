@@ -508,7 +508,7 @@ def test_main_namespace_all_dir_coherence():
 
 
 @pytest.mark.filterwarnings(
-    "ignore:`numpy.core` has been made officially private:DeprecationWarning"
+    "ignore:numpy.core has been made officially private:DeprecationWarning"
 )
 def test_core_shims_coherence():
     """
