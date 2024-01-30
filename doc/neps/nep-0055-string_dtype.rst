@@ -6,9 +6,10 @@ NEP 55 — Add a UTF-8 variable-width string DType to NumPy
 
 :Author: Nathan Goldbaum <ngoldbaum@quansight.com>
 :Author: Warren Weckesser
-:Status: Draft
+:Status: Accepted
 :Type: Standards Track
 :Created: 2023-06-29
+:Resolution: https://mail.python.org/archives/list/numpy-discussion@python.org/thread/Y5CIKBZKMIOWSRYLJ64WV6DKM37QR76B/
 
 
 Abstract
