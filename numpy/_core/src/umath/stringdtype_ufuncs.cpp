@@ -2102,14 +2102,14 @@ add_promoter(PyObject *numpy, const char *ufunc_name,
 
     PyObject *DType_tuple = PyTuple_New(n_dtypes);
 
-    for (size_t i=0; i<n_dtypes; i++) {
-        PyTuple_SET_ITEM(DType_tuple, i, (PyObject *)dtypes[i]);
-    }
-
-
     if (DType_tuple == NULL) {
         Py_DECREF(ufunc);
         return -1;
+    }
+
+    for (size_t i=0; i<n_dtypes; i++) {
+        Py_INCREF((PyObject *)dtypes[i]);
+        PyTuple_SET_ITEM(DType_tuple, i, (PyObject *)dtypes[i]);
     }
 
     PyObject *promoter_capsule = PyCapsule_New((void *)promoter_impl,
@@ -2339,24 +2339,55 @@ init_stringdtype_ufuncs(PyObject *umath)
     INIT_MULTIPLY(Int64, int64);
     INIT_MULTIPLY(UInt64, uint64);
 
-    // all other integer dtypes are handled with a generic promoter
+    // all other integer dtypes are handled with a promoter to Int64
 
-    PyArray_DTypeMeta *rdtypes[] = {
-        &PyArray_StringDType,
-        (PyArray_DTypeMeta *)Py_None,
-        &PyArray_StringDType};
+    PyArray_DTypeMeta integer_dtypes[] = {
+        PyArray_Int8DType,
+        PyArray_Int16DType,
+        PyArray_Int32DType,
+        PyArray_Int64DType,
+        PyArray_UInt8DType,
+        PyArray_UInt16DType,
+        PyArray_UInt32DType,
+        PyArray_UInt64DType,
+#if NPY_SIZEOF_BYTE == NPY_SIZEOF_SHORT
+        PyArray_ByteDType,
+        PyArray_UBtyeDType,
+#endif
+#if NPY_SIZEOF_SHORT == NPY_SIZEOF_INT
+        PyArray_ShortDType,
+        PyArray_UShortDType,
+#endif
+#if NPY_SIZEOF_INT == NPY_SIZEOF_LONG
+        PyArray_LongDType,
+        PyArray_ULongDType,
+#endif
+#if NPY_SIZEOF_LONGLONG == NPY_SIZEOF_LONG
+        PyArray_LongLongDType,
+        PyArray_ULongLongDType,
+#endif
+    };
 
-    if (add_promoter(umath, "multiply", rdtypes, 3, string_multiply_promoter) < 0) {
-        return -1;
-    }
+    int n_dtypes = sizeof(integer_dtypes)/sizeof(PyArray_DTypeMeta);
 
-    PyArray_DTypeMeta *ldtypes[] = {
-        (PyArray_DTypeMeta *)Py_None,
-        &PyArray_StringDType,
-        &PyArray_StringDType};
+    for (int i=0; i<n_dtypes; i++) {
+        PyArray_DTypeMeta *rdtypes[] = {
+            &PyArray_StringDType,
+            &integer_dtypes[i],
+            &PyArray_StringDType};
 
-    if (add_promoter(umath, "multiply", ldtypes, 3, string_multiply_promoter) < 0) {
-        return -1;
+        if (add_promoter(umath, "multiply", rdtypes, 3, string_multiply_promoter) < 0) {
+            return -1;
+        }
+
+        PyArray_DTypeMeta *ldtypes[] = {
+            &integer_dtypes[i],
+            &PyArray_StringDType,
+            &PyArray_StringDType};
+
+        if (add_promoter(umath, "multiply", ldtypes, 3, string_multiply_promoter) < 0) {
+            return -1;
+        }
     }
 
     PyArray_DTypeMeta *findlike_dtypes[] = {
@@ -2542,7 +2573,7 @@ init_stringdtype_ufuncs(PyObject *umath)
 
     PyArray_DTypeMeta *expandtabs_promoter_dtypes[] = {
         &PyArray_StringDType,
-        (PyArray_DTypeMeta *)Py_None,
+        &PyArray_UnicodeDType,
         &PyArray_StringDType
     };
 
@@ -2614,13 +2645,13 @@ init_stringdtype_ufuncs(PyObject *umath)
         return -1;
     }
 
-    PyArray_DTypeMeta *int_promoter_dtypes[] = {
+    PyArray_DTypeMeta *promoter_dtypes[] = {
             &PyArray_StringDType,
-            (PyArray_DTypeMeta *)Py_None,
+            &PyArray_UnicodeDType,
             &PyArray_StringDType,
     };
 
-    if (add_promoter(umath, "_zfill", int_promoter_dtypes, 3,
+    if (add_promoter(umath, "_zfill", promoter_dtypes, 3,
                      string_multiply_promoter) < 0) {
         return -1;
     }
