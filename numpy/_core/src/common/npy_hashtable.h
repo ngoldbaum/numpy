@@ -2,6 +2,12 @@
 #define NUMPY_CORE_SRC_COMMON_NPY_NPY_HASHTABLE_H_
 
 #include <Python.h>
+#ifdef Py_GIL_DISABLED
+#ifndef Py_BUILD_CORE
+#define Py_BUILD_CORE 1
+#endif
+#include "internal/pycore_lock.h"
+#endif
 
 #define NPY_NO_DEPRECATED_API NPY_API_VERSION
 #include "numpy/ndarraytypes.h"
@@ -13,6 +19,9 @@ typedef struct {
     PyObject **buckets;
     npy_intp size;  /* current size */
     npy_intp nelem;  /* number of elements */
+#ifdef Py_GIL_DISABLED
+    PyMutex mutex;
+#endif
 } PyArrayIdentityHash;
 
 
