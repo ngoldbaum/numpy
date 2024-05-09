@@ -28,6 +28,10 @@ typedef struct {
     int nargs;
     int npositional_only;
     int nrequired;
+#if Py_GIL_DISABLED
+    int completed_initialization;
+    PyThread_type_lock *mutex;
+#endif
     /* Null terminated list of keyword argument name strings */
     PyObject *kw_strings[_NPY_MAX_KWARGS+1];
 } _NpyArgParserCache;
@@ -37,7 +41,17 @@ typedef struct {
  * The sole purpose of this macro is to hide the argument parsing cache.
  * Since this cache must be static, this also removes a source of error.
  */
+#ifndef Py_GIL_DISABLED
 #define NPY_PREPARE_ARGPARSER static _NpyArgParserCache __argparse_cache = {-1}
+#else
+#define NPY_PREPARE_ARGPARSER static _NpyArgParserCache __argparse_cache = {-1}; \
+    __argparse_cache.completed_initialization = 0;                      \
+    __argparse_cache.mutex = PyThread_allocate_lock();                  \
+    if (__argparse_cache.mutex == NULL) {                               \
+        PyErr_NoMemory();                                               \
+        return NULL;                                                    \
+    }
+#endif
 
 /**
  * Macro to help with argument parsing.

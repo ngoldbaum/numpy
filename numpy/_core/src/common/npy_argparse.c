@@ -274,7 +274,15 @@ _npy_parse_arguments(const char *funcname,
         /* ... is NULL, NULL, NULL terminated: name, converter, value */
         ...)
 {
+#if Py_GIL_DISABLED
+    int expected = 0;
+    if (_Py_atomic_compare_exchange_int(&cache->completed_initialization, &expected, -1)) {
+        if (!PyThread_acquire_lock(cache->mutex, NOWAIT_LOCK)) {
+            PyThread_acquire_lock(cache->mutex, WAIT_LOCK);
+        }
+#else
     if (NPY_UNLIKELY(cache->npositional == -1)) {
+#endif
         va_list va;
         va_start(va, kwnames);
 
@@ -283,6 +291,20 @@ _npy_parse_arguments(const char *funcname,
         if (res < 0) {
             return -1;
         }
+#if Py_GIL_DISABLED
+        _Py_atomic_store_int(&cache->completed_initialization, 1);
+        PyThread_release_lock(cache->mutex);
+    }
+    else {
+        // check if initialization is still being completed in another thread
+        // if so, enter spinlock
+        while (_Py_atomic_load_int(&cache->completed_initialization) <= 0) {
+            if (!PyThread_acquire_lock(cache->mutex, NOWAIT_LOCK)) {
+                PyThread_acquire_lock(cache->mutex, WAIT_LOCK);
+            }
+            PyThread_release_lock(cache->mutex);
+        }
+#endif
     }
 
     if (NPY_UNLIKELY(len_args > cache->npositional)) {
