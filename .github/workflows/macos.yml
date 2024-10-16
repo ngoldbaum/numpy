@@ -108,7 +108,8 @@ jobs:
 
   accelerate:
     name: Accelerate (LP64, ILP64) - ${{ matrix.build_runner[1] }}
-    if: github.repository == 'numpy/numpy'
+    # To enable this workflow on a fork, comment out:
+    # if: github.repository == 'numpy/numpy'
     runs-on: ${{ matrix.build_runner[0] }}
     strategy:
       fail-fast: false
@@ -153,6 +154,8 @@ jobs:
 
   free-threaded:
     name: MacOS Free-threaded - ${{ matrix.build_runner[1] }}
+    # To enable this workflow on a fork, comment out:
+    # if: github.repository == 'numpy/numpy'
     runs-on: ${{ matrix.build_runner[0] }}
     strategy:
       fail-fast: false
@@ -171,3 +174,5 @@ jobs:
       run: |
         pip install -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple cython
     - uses: ./.github/meson_actions
+    - name: Test
+      run: spin test
