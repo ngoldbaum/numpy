@@ -179,5 +179,9 @@ jobs:
     - name: Install nightly Cython
       run: |
         pip install -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple cython
-    - name: Test
+    - name: Install dependencies
+      run: |
+        pip install -r requirements/build_requirements.txt
+        pip install pytest pytest-xdist hypothesis
+    - name: Build and test
       run: spin test
