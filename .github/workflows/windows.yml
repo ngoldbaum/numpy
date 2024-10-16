@@ -18,11 +18,12 @@ jobs:
     name: x86-64, LP64 OpenBLAS
     runs-on: windows-2019
     # To enable this job on a fork, comment out:
-    if: github.repository == 'numpy/numpy'
+    #if: github.repository == 'numpy/numpy'
     strategy:
       fail-fast: false
       matrix:
         compiler: ["MSVC", "Clang-cl"]
+        python-version: ["3.13", "3.13t"]
     steps:
     - name: Checkout
       uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -30,10 +31,10 @@ jobs:
         submodules: recursive
         fetch-tags: true
 
-    - name: Setup Python
-      uses: actions/setup-python@f677139bbe7f9c59b41e40162b753c062f5d49a3 # v5.2.0
-      with:
-        python-version: '3.11'
+    - uses: astral-sh/uv@v3
+    - run: uv python install ${{ matrix.python-version }}
+    - run: uv venv --python ${{ matrix.python-version }}
+    - run: ./venv/bin/activate
 
     - name: Install build dependencies from PyPI
       run: |

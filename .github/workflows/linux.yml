@@ -29,7 +29,7 @@ permissions:
 jobs:
   lint:
     # To enable this job and subsequent jobs on a fork, comment out:
-    if: github.repository == 'numpy/numpy' && github.event_name != 'push'
+    #if: github.repository == 'numpy/numpy' && github.event_name != 'push'
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
@@ -301,11 +301,10 @@ jobs:
       with:
         submodules: recursive
         fetch-tags: true
-    # TODO: replace with setup-python when there is support
-    - uses: deadsnakes/action@e640ac8743173a67cca4d7d77cd837e514bf98e8 # v3.2.0
-      with:
-          python-version: '3.13-dev'
-          nogil: true
+    - uses: astral-sh/uv@v3
+    - run: uv python install 3.13t
+    - run: uv venv --python 3.13t
+    - run: ./venv/bin/activate
     # TODO: remove cython nightly install when cython does a release
     - name: Install nightly Cython
       run: |
