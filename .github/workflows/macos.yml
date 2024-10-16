@@ -1,14 +1,10 @@
 name: macOS tests (meson)
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
     branches:
       - main
       - maintenance/**
-  workflow_dispatch:
 
 permissions:
    contents: read  # to fetch code (actions/checkout)
@@ -24,7 +20,7 @@ jobs:
   x86_conda:
     name: macOS x86-64 conda
     # To enable this workflow on a fork, comment out:
-    #if: github.repository == 'numpy/numpy'
+    if: github.repository == 'numpy/numpy'
     runs-on: macos-13
     strategy:
       fail-fast: false
@@ -109,7 +105,7 @@ jobs:
   accelerate:
     name: Accelerate (LP64, ILP64) - ${{ matrix.build_runner[1] }}
     # To enable this workflow on a fork, comment out:
-    # if: github.repository == 'numpy/numpy'
+    if: github.repository == 'numpy/numpy'
     runs-on: ${{ matrix.build_runner[0] }}
     strategy:
       fail-fast: false
@@ -155,7 +151,7 @@ jobs:
   free-threaded:
     name: MacOS Free-threaded - ${{ matrix.build_runner[1] }}
     # To enable this workflow on a fork, comment out:
-    # if: github.repository == 'numpy/numpy'
+    if: github.repository == 'numpy/numpy'
     runs-on: ${{ matrix.build_runner[0] }}
     strategy:
       fail-fast: false
