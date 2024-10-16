@@ -179,6 +179,5 @@ jobs:
     - name: Install nightly Cython
       run: |
         pip install -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple cython
-    - uses: ./.github/meson_actions
     - name: Test
       run: spin test
