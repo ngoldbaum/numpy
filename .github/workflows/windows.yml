@@ -32,10 +32,10 @@ jobs:
         submodules: recursive
         fetch-tags: true
 
-    - uses: astral-sh/uv@v3
+    - uses: astral-sh/setup-uv@v3
     - run: uv python install ${{ matrix.python-version }}
     - run: uv venv --python ${{ matrix.python-version }}
-    - run: ./venv/bin/activate
+    - run: .venv\Scripts\activate
 
     - name: Install build dependencies from PyPI
       run: |

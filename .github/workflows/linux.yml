@@ -302,10 +302,10 @@ jobs:
       with:
         submodules: recursive
         fetch-tags: true
-    - uses: astral-sh/uv@v3
+    - uses: astral-sh/setup-uv@v3
     - run: uv python install 3.13t
     - run: uv venv --python 3.13t
-    - run: ./venv/bin/activate
+    - run: source ./venv/bin/activate
     # TODO: remove cython nightly install when cython does a release
     - name: Install nightly Cython
       run: |
