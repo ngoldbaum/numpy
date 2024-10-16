@@ -296,7 +296,7 @@ jobs:
   free-threaded:
     needs: [smoke_test]
     runs-on: ubuntu-latest
-    if: github.event_name != 'push'
+    #if: github.event_name != 'push'
     steps:
     - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       with:
