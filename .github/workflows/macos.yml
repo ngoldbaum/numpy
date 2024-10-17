@@ -1,6 +1,9 @@
 name: macOS tests (meson)
 
 on:
+  push:
+    branches:
+      - test-free-threaded-ci-on-my-fork
   pull_request:
     branches:
       - main
@@ -151,7 +154,7 @@ jobs:
   free-threaded:
     name: MacOS Free-threaded - ${{ matrix.build_runner[1] }}
     # To enable this workflow on a fork, comment out:
-    if: github.repository == 'numpy/numpy'
+    # if: github.repository == 'numpy/numpy'
     runs-on: ${{ matrix.build_runner[0] }}
     strategy:
       fail-fast: false
@@ -169,6 +172,7 @@ jobs:
     - run: |
         uv python install 3.13t
         uv venv --python 3.13t
+        uv pip install pip
         . .venv/bin/activate
         echo PATH=$PATH >> $GITHUB_ENV
     # TODO: remove cython nightly install when cython does a release
