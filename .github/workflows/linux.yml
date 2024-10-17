@@ -66,6 +66,7 @@ jobs:
     - run: |
         uv python install ${{ matrix.version }}
         uv venv --python ${{ matrix.version }}
+        uv add --dev pip
         . .venv/bin/activate
         # this is a hack because uv doesn't yet support working
         # with a global python environment managed by uv
