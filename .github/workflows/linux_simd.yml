@@ -62,7 +62,7 @@ jobs:
       with:
         submodules: recursive
         fetch-tags: true
-    - uses: astral-sh/setup-uv@v3
+    - uses: astral-sh/setup-uv@f3bcaebff5eace81a1c062af9f9011aae482ca9d
     - run: uv python install 3.10
     - uses: ./.github/meson_actions
       name: Build/Test
@@ -78,7 +78,7 @@ jobs:
       with:
         submodules: recursive
         fetch-tags: true
-    - uses: astral-sh/setup-uv@v3
+    - uses: astral-sh/setup-uv@f3bcaebff5eace81a1c062af9f9011aae482ca9d
     - run: uv python install 3.10
 
     - name: Install GCC/8/9
@@ -142,7 +142,7 @@ jobs:
       with:
         submodules: recursive
         fetch-tags: true
-    - uses: astral-sh/setup-uv@v3
+    - uses: astral-sh/setup-uv@f3bcaebff5eace81a1c062af9f9011aae482ca9d
     - run: uv python install ${{ matrix.BUILD_PROP[2] }}
     - uses: ./.github/meson_actions
       name: Build/Test
@@ -155,7 +155,7 @@ jobs:
       with:
         submodules: recursive
         fetch-tags: true
-    - uses: astral-sh/setup-uv@v3
+    - uses: astral-sh/setup-uv@f3bcaebff5eace81a1c062af9f9011aae482ca9d
     - run: uv python install 3.11
 
     - name: Install Intel SDE
@@ -204,7 +204,7 @@ jobs:
       with:
         submodules: recursive
         fetch-tags: true
-    - uses: astral-sh/setup-uv@v3
+    - uses: astral-sh/setup-uv@f3bcaebff5eace81a1c062af9f9011aae482ca9d
     - run: uv python install 3.11
 
     - name: Install Intel SDE

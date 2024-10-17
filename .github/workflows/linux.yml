@@ -62,10 +62,10 @@ jobs:
       with:
         submodules: recursive
         fetch-tags: true
-    - uses: astral-sh/setup-uv@v3
+    - uses: astral-sh/setup-uv@f3bcaebff5eace81a1c062af9f9011aae482ca9d
     - run: |
         uv python install ${{ matrix.version }}
-        uv venv --python ${{ matrix.version }}
+        uv venv --system-site-packages --python ${{ matrix.version }}
         . .venv/bin/activate
         # this is a hack because uv doesn't yet support working
         # with a global python environment managed by uv
