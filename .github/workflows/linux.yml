@@ -64,6 +64,7 @@ jobs:
         fetch-tags: true
     - uses: astral-sh/setup-uv@v3
     - run: uv python install ${{ matrix.version }}
+    - run: echo "UV_PYTHON=${{ matrix.version }}" >> $GITHUB_ENV
     # TODO: remove cython nightly install when cython does a release
     - name: Install nightly Cython
       if: ${{ matrix.version == '3.13t' }}
