@@ -33,5 +33,5 @@ runs:
       python -m pip install pytest pytest-xdist hypothesis meson meson-python typing_extensions setuptools
       echo "::endgroup::"
       echo "::group::Test NumPy"
-      spin test -- -xv
+      spin test -- -v
       echo "::endgroup::"
