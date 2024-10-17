@@ -69,7 +69,7 @@ jobs:
     - name: Install nightly Cython
       if: ${{ matrix.version == '3.13t' }}
       run: |
-        uv pip install -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple cython
+        uv pip install --python=3.13t -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple cython
     - uses: ./.github/meson_actions
 
   pypy:
