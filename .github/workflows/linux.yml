@@ -63,8 +63,13 @@ jobs:
         submodules: recursive
         fetch-tags: true
     - uses: astral-sh/setup-uv@v3
-    - run: uv python install ${{ matrix.version }}
-    - run: echo "PATH=$(dirname $(uv python find ${{ matrix.version }})):$PATH" >> $GITHUB_ENV
+    - run: |
+        uv python install ${{ matrix.version }}
+        uv venv --python ${{ matrix.version }}
+        . .venv/bin/activate
+        # this is a hack because uv doesn't yet support working
+        # with a global python environment managed by uv
+        echo PATH=$PATH >> $GITHUB_ENV
     - run: echo $PATH
     # TODO: remove cython nightly install when cython does a release
     - name: Install nightly Cython
