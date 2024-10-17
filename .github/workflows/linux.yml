@@ -10,6 +10,7 @@ on:
     branches:
       # coverage comparison in the "full" step needs to run on main after merges
       - main
+      - test-free-threaded-ci-on-my-fork
   pull_request:
     branches:
       - main
@@ -49,7 +50,7 @@ jobs:
 
   smoke_test:
     # To enable this job on a fork, comment out:
-    if: github.repository == 'numpy/numpy'
+    # if: github.repository == 'numpy/numpy'
     runs-on: ubuntu-latest
     env:
       MESON_ARGS: "-Dallow-noblas=true -Dcpu-baseline=none -Dcpu-dispatch=none"
@@ -62,16 +63,12 @@ jobs:
         submodules: recursive
         fetch-tags: true
     - uses: astral-sh/setup-uv@v3
-    - run: |
-        uv python install ${{ matrix.version }}
-        uv venv --python ${{ matrix.version }}
-        . .venv/bin/activate
-        echo PATH=$PATH >> $GITHUB_ENV
+    - run: uv python install ${{ matrix.version }}
     # TODO: remove cython nightly install when cython does a release
     - name: Install nightly Cython
       if: ${{ matrix.version == '3.13t' }}
       run: |
-        pip install -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple cython
+        uv pip install -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple cython
     - uses: ./.github/meson_actions
 
   pypy:
