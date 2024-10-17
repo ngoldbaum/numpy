@@ -65,7 +65,7 @@ jobs:
     - uses: astral-sh/setup-uv@f3bcaebff5eace81a1c062af9f9011aae482ca9d
     - run: |
         uv python install ${{ matrix.version }}
-        uv venv --system-site-packages --python ${{ matrix.version }}
+        uv venv --python ${{ matrix.version }}
         . .venv/bin/activate
         # this is a hack because uv doesn't yet support working
         # with a global python environment managed by uv
@@ -75,7 +75,7 @@ jobs:
     - name: Install nightly Cython
       if: ${{ matrix.version == '3.13t' }}
       run: |
-        uv pip install -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple cython
+        python -m pip install -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple cython
     - uses: ./.github/meson_actions
 
   pypy:
