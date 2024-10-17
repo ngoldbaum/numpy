@@ -13,7 +13,7 @@ runs:
       uv pip install -r requirements/build_requirements.txt
       echo "::endgroup::"
       echo "::group::Building NumPy"
-      uv run spin build --clean -- ${MESON_ARGS[@]}
+      spin build --clean -- ${MESON_ARGS[@]}
       echo "::endgroup::"
 
   - name: Meson Log
@@ -33,5 +33,5 @@ runs:
       uv pip install pytest pytest-xdist hypothesis typing_extensions setuptools
       echo "::endgroup::"
       echo "::group::Test NumPy"
-      uv run spin test
+      spin test
       echo "::endgroup::"
