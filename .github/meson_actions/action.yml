@@ -9,6 +9,9 @@ runs:
       TERM: xterm-256color
       PKG_CONFIG_PATH: ./.openblas
     run: |
+      echo $PATH
+      which python
+      python --version
       echo "::group::Installing Build Dependencies"
       pip install -r requirements/build_requirements.txt
       echo "::endgroup::"

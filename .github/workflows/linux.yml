@@ -14,6 +14,7 @@ on:
     branches:
       - main
       - maintenance/**
+  workflow_dispatch:
 
 defaults:
   run:
@@ -29,7 +30,7 @@ permissions:
 jobs:
   lint:
     # To enable this job and subsequent jobs on a fork, comment out:
-    if: github.repository == 'numpy/numpy' && github.event_name != 'push'
+    # if: github.repository == 'numpy/numpy' && github.event_name != 'push'
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
@@ -52,7 +53,7 @@ jobs:
 
   smoke_test:
     # To enable this job on a fork, comment out:
-    if: github.repository == 'numpy/numpy'
+    # if: github.repository == 'numpy/numpy'
     runs-on: ubuntu-latest
     env:
       MESON_ARGS: "-Dallow-noblas=true -Dcpu-baseline=none -Dcpu-dispatch=none"
@@ -73,7 +74,7 @@ jobs:
     - name: Install nightly Cython
       if: matrix.version == '3.13t'
       run: |
-        pip install -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple cython
+        uv pip install -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple cython
     - uses: ./.github/meson_actions
 
   # TODO pypy: uncomment when pypy3.11 becomes available    
