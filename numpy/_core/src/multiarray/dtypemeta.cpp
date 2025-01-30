@@ -1146,11 +1146,11 @@ dtypemeta_wrap_legacy_descriptor(
         {
                 {
                         PyVarObject_HEAD_INIT(&PyArrayDTypeMeta_Type, 0)
-                                NULL, /* set below */
+                        NULL, /* set below */
                         sizeof(_PyArray_LegacyDescr),
                         0,
                         NULL,
-                        NULL,
+                        0,
                         NULL,
                         NULL,
                         NULL,
@@ -1169,7 +1169,7 @@ dtypemeta_wrap_legacy_descriptor(
                         NULL,
                         NULL,
                         NULL,
-                        NULL,
+                        0,
                         NULL,
                         NULL,
                         NULL,
@@ -1179,7 +1179,7 @@ dtypemeta_wrap_legacy_descriptor(
                         NULL,
                         NULL,
                         NULL,
-                        NULL,
+                        0,
                         NULL,
                         NULL,
                         (newfunc)legacy_dtype_default_new,
@@ -1388,11 +1388,12 @@ initialize_legacy_dtypemeta_aliases(_PyArray_LegacyDescr **_builtin_descrs) {
 }
 
 NPY_NO_EXPORT PyTypeObject PyArrayDTypeMeta_Type = {
-        PyVarObject_HEAD_INIT(NULL, 0) "numpy._DTypeMeta",
+        PyVarObject_HEAD_INIT(NULL, 0)
+        "numpy._DTypeMeta",
         sizeof(PyArray_DTypeMeta),
         0,
         (destructor)dtypemeta_dealloc,
-        NULL,
+        0,
         NULL,
         NULL,
         NULL,
@@ -1412,7 +1413,7 @@ NPY_NO_EXPORT PyTypeObject PyArrayDTypeMeta_Type = {
         (traverseproc)dtypemeta_traverse,
         NULL,
         NULL,
-        NULL,
+        0,
         NULL,
         NULL,
         NULL,
@@ -1422,12 +1423,14 @@ NPY_NO_EXPORT PyTypeObject PyArrayDTypeMeta_Type = {
         NULL,
         NULL,
         (initproc)dtypemeta_init,
-        NULL,
+        0,
         NULL,
         dtypemeta_alloc,
         dtypemeta_new,
         NULL,
         dtypemeta_is_gc,
+        NULL,
+        NULL
 };
 
 
