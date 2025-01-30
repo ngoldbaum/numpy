@@ -128,8 +128,8 @@ legacy_setitem_using_DType(PyObject *obj, void *data, void *arr)
         return -1;
     }
     PyArrayDTypeMeta_SetItem *setitem;
-    setitem = NPY_DT_SLOTS(NPY_DTYPE(PyArray_DESCR(arr)))->setitem;
-    return setitem(PyArray_DESCR(arr), obj, data);
+    setitem = NPY_DT_SLOTS(NPY_DTYPE(PyArray_DESCR((const PyArrayObject *)arr)))->setitem;
+    return setitem(PyArray_DESCR((const PyArrayObject *)arr), obj, (char *)data);
 }
 
 
@@ -143,8 +143,8 @@ legacy_getitem_using_DType(void *data, void *arr)
         return NULL;
     }
     PyArrayDTypeMeta_GetItem *getitem;
-    getitem = NPY_DT_SLOTS(NPY_DTYPE(PyArray_DESCR(arr)))->getitem;
-    return getitem(PyArray_DESCR(arr), data);
+    getitem = NPY_DT_SLOTS(NPY_DTYPE(PyArray_DESCR((const PyArrayObject *)arr)))->getitem;
+    return getitem(PyArray_DESCR((const PyArrayObject *)arr), (char *)data);
 }
 
 /*
@@ -230,46 +230,60 @@ dtypemeta_initialize_struct_from_spec(
             if (1 <= f_slot && f_slot <= NPY_NUM_DTYPE_PYARRAY_ARRFUNCS_SLOTS) {
                 switch (f_slot) {
                     case 1:
-                        NPY_DT_SLOTS(DType)->f.getitem = pfunc;
+                        NPY_DT_SLOTS(DType)->f.getitem =
+                                (PyArray_GetItemFunc *)pfunc;
                         break;
                     case 2:
-                        NPY_DT_SLOTS(DType)->f.setitem = pfunc;
+                        NPY_DT_SLOTS(DType)->f.setitem =
+                                (PyArray_SetItemFunc *)pfunc;
                         break;
                     case 3:
-                        NPY_DT_SLOTS(DType)->f.copyswapn = pfunc;
+                        NPY_DT_SLOTS(DType)->f.copyswapn =
+                                (PyArray_CopySwapNFunc *)pfunc;
                         break;
                     case 4:
-                        NPY_DT_SLOTS(DType)->f.copyswap = pfunc;
+                        NPY_DT_SLOTS(DType)->f.copyswap =
+                                (PyArray_CopySwapFunc *)pfunc;
                         break;
                     case 5:
-                        NPY_DT_SLOTS(DType)->f.compare = pfunc;
+                        NPY_DT_SLOTS(DType)->f.compare =
+                                (PyArray_CompareFunc *)pfunc;
                         break;
                     case 6:
-                        NPY_DT_SLOTS(DType)->f.argmax = pfunc;
+                        NPY_DT_SLOTS(DType)->f.argmax =
+                                (PyArray_ArgFunc *)pfunc;
                         break;
                     case 7:
-                        NPY_DT_SLOTS(DType)->f.dotfunc = pfunc;
+                        NPY_DT_SLOTS(DType)->f.dotfunc =
+                                (PyArray_DotFunc *)pfunc;
                         break;
                     case 8:
-                        NPY_DT_SLOTS(DType)->f.scanfunc = pfunc;
+                        NPY_DT_SLOTS(DType)->f.scanfunc =
+                                (PyArray_ScanFunc *)pfunc;
                         break;
                     case 9:
-                        NPY_DT_SLOTS(DType)->f.fromstr = pfunc;
+                        NPY_DT_SLOTS(DType)->f.fromstr =
+                                (PyArray_FromStrFunc *)pfunc;
                         break;
                     case 10:
-                        NPY_DT_SLOTS(DType)->f.nonzero = pfunc;
+                        NPY_DT_SLOTS(DType)->f.nonzero =
+                                (PyArray_NonzeroFunc *)pfunc;
                         break;
                     case 11:
-                        NPY_DT_SLOTS(DType)->f.fill = pfunc;
+                        NPY_DT_SLOTS(DType)->f.fill =
+                                (PyArray_FillFunc *)pfunc;
                         break;
                     case 12:
-                        NPY_DT_SLOTS(DType)->f.fillwithscalar = pfunc;
+                        NPY_DT_SLOTS(DType)->f.fillwithscalar =
+                                (PyArray_FillWithScalarFunc *)pfunc;
                         break;
                     case 13:
-                        *NPY_DT_SLOTS(DType)->f.sort = pfunc;
+                        *NPY_DT_SLOTS(DType)->f.sort =
+                                (PyArray_SortFunc *)pfunc;
                         break;
                     case 14:
-                        *NPY_DT_SLOTS(DType)->f.argsort = pfunc;
+                        *NPY_DT_SLOTS(DType)->f.argsort =
+                                (PyArray_ArgSortFunc *)pfunc;
                         break;
                     case 15:
                     case 16:
@@ -285,7 +299,8 @@ dtypemeta_initialize_struct_from_spec(
                         );
                         return -1;
                     case 22:
-                        NPY_DT_SLOTS(DType)->f.argmin = pfunc;
+                        NPY_DT_SLOTS(DType)->f.argmin =
+                                (PyArray_ArgFunc *)pfunc;
                         break;
                 }
             } else {
@@ -431,7 +446,7 @@ string_unicode_new(PyArray_DTypeMeta *self, PyObject *args, PyObject *kwargs)
 {
     npy_intp size;
 
-    static char *kwlist[] = {"", NULL};
+    static const char *kwlist[] = {"", NULL};
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O&", kwlist,
                                      PyArray_IntpFromPyIntConverter, &size)) {
@@ -441,7 +456,7 @@ string_unicode_new(PyArray_DTypeMeta *self, PyObject *args, PyObject *kwargs)
     if (size < 0) {
         PyErr_Format(PyExc_ValueError,
                      "Strings cannot have a negative size but a size of "
-                     "%"NPY_INTP_FMT" was given", size);
+                     "%" NPY_INTP_FMT " was given", size);
         return NULL;
     }
 
@@ -656,12 +671,12 @@ void_ensure_canonical(_PyArray_LegacyDescr *self)
             Py_INCREF(self);
             return (PyArray_Descr *)self;
         }
-        PyArray_Descr *new = PyArray_DescrNew((PyArray_Descr *)self);
-        if (new == NULL) {
+        PyArray_Descr *new_ = PyArray_DescrNew((PyArray_Descr *)self);
+        if (new_ == NULL) {
             return NULL;
         }
-        Py_SETREF(((_PyArray_LegacyDescr *)new)->subarray->base, new_base);
-        return new;
+        Py_SETREF(((_PyArray_LegacyDescr *)new_)->subarray->base, new_base);
+        return new_;
     }
     else if (self->names != NULL) {
         /*
@@ -676,19 +691,19 @@ void_ensure_canonical(_PyArray_LegacyDescr *self)
          */
         Py_ssize_t field_num = PyTuple_GET_SIZE(self->names);
 
-        _PyArray_LegacyDescr *new = (_PyArray_LegacyDescr *)PyArray_DescrNew(
+        _PyArray_LegacyDescr *new_ = (_PyArray_LegacyDescr *)PyArray_DescrNew(
                 (PyArray_Descr *)self);
-        if (new == NULL) {
+        if (new_ == NULL) {
             return NULL;
         }
-        Py_SETREF(new->fields, PyDict_New());
-        if (new->fields == NULL) {
-            Py_DECREF(new);
+        Py_SETREF(new_->fields, PyDict_New());
+        if (new_->fields == NULL) {
+            Py_DECREF(new_);
             return NULL;
         }
-        int aligned = PyDataType_FLAGCHK((PyArray_Descr *)new, NPY_ALIGNED_STRUCT);
-        new->flags = new->flags & ~NPY_FROM_FIELDS;
-        new->flags |= NPY_NEEDS_PYAPI;  /* always needed for field access */
+        int aligned = PyDataType_FLAGCHK((PyArray_Descr *)new_, NPY_ALIGNED_STRUCT);
+        new_->flags = new_->flags & ~NPY_FROM_FIELDS;
+        new_->flags |= NPY_NEEDS_PYAPI;  /* always needed for field access */
         int totalsize = 0;
         int maxalign = 1;
         for (Py_ssize_t i = 0; i < field_num; i++) {
@@ -699,10 +714,10 @@ void_ensure_canonical(_PyArray_LegacyDescr *self)
                     (PyArray_Descr *)PyTuple_GET_ITEM(tuple, 0));
             if (field_descr == NULL) {
                 Py_DECREF(new_tuple);
-                Py_DECREF(new);
+                Py_DECREF(new_);
                 return NULL;
             }
-            new->flags |= field_descr->flags & NPY_FROM_FIELDS;
+            new_->flags |= field_descr->flags & NPY_FROM_FIELDS;
             PyTuple_SET_ITEM(new_tuple, 0, (PyObject *)field_descr);
 
             if (aligned) {
@@ -713,7 +728,7 @@ void_ensure_canonical(_PyArray_LegacyDescr *self)
             PyObject *offset_obj = PyLong_FromLong(totalsize);
             if (offset_obj == NULL) {
                 Py_DECREF(new_tuple);
-                Py_DECREF(new);
+                Py_DECREF(new_);
                 return NULL;
             }
             PyTuple_SET_ITEM(new_tuple, 1, (PyObject *)offset_obj);
@@ -722,24 +737,24 @@ void_ensure_canonical(_PyArray_LegacyDescr *self)
                 PyObject *title = PyTuple_GET_ITEM(tuple, 2);
                 Py_INCREF(title);
                 PyTuple_SET_ITEM(new_tuple, 2, title);
-                if (PyDict_SetItem(new->fields, title, new_tuple) < 0) {
+                if (PyDict_SetItem(new_->fields, title, new_tuple) < 0) {
                     Py_DECREF(new_tuple);
-                    Py_DECREF(new);
+                    Py_DECREF(new_);
                     return NULL;
                 }
             }
-            if (PyDict_SetItem(new->fields, name, new_tuple) < 0) {
+            if (PyDict_SetItem(new_->fields, name, new_tuple) < 0) {
                 Py_DECREF(new_tuple);
-                Py_DECREF(new);
+                Py_DECREF(new_);
                 return NULL;
             }
-            Py_DECREF(new_tuple);  /* Reference now owned by PyDataType_FIELDS(new) */
+            Py_DECREF(new_tuple);  /* Reference now owned by PyDataType_FIELDS(new_) */
             totalsize += field_descr->elsize;
         }
         totalsize = NPY_NEXT_ALIGNED_OFFSET(totalsize, maxalign);
-        new->elsize = totalsize;
-        new->alignment = maxalign;
-        return (PyArray_Descr *)new;
+        new_->elsize = totalsize;
+        new_->alignment = maxalign;
+        return (PyArray_Descr *)new_;
     }
     else {
         /* unstructured voids are always canonical. */
@@ -1100,13 +1115,13 @@ dtypemeta_wrap_legacy_descriptor(
         return -1;
     }
 
-    NPY_DType_Slots *dt_slots = PyMem_Malloc(sizeof(NPY_DType_Slots));
+    NPY_DType_Slots *dt_slots = (NPY_DType_Slots *)PyMem_Malloc(sizeof(NPY_DType_Slots));
     if (dt_slots == NULL) {
         return -1;
     }
     memset(dt_slots, '\0', sizeof(NPY_DType_Slots));
 
-    PyArray_DTypeMeta *dtype_class = PyMem_Malloc(sizeof(PyArray_DTypeMeta));
+    PyArray_DTypeMeta *dtype_class = (PyArray_DTypeMeta *)PyMem_Malloc(sizeof(PyArray_DTypeMeta));
     if (dtype_class == NULL) {
         PyMem_Free(dt_slots);
         return -1;
