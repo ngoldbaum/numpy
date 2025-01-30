@@ -2215,14 +2215,13 @@ add_numeric_cast(PyArray_DTypeMeta *from, PyArray_DTypeMeta *to)
 {
     PyType_Slot slots[7];
     PyArray_DTypeMeta *dtypes[2] = {from, to};
-    PyArrayMethod_Spec spec = {
-            .name = "numeric_cast",
-            .nin = 1,
-            .nout = 1,
-            .flags = NPY_METH_SUPPORTS_UNALIGNED,
-            .dtypes = dtypes,
-            .slots = slots,
-    };
+    PyArrayMethod_Spec spec;
+    spec.name = "numeric_cast";
+    spec.nin = 1;
+    spec.nout = 1;
+    spec.flags = NPY_METH_SUPPORTS_UNALIGNED;
+    spec.dtypes = dtypes;
+    spec.slots = slots;
 
     npy_intp from_itemsize = from->singleton->elsize;
     npy_intp to_itemsize = to->singleton->elsize;
@@ -2463,14 +2462,14 @@ add_other_to_and_from_string_cast(
             {NPY_METH_get_loop, (void *)&legacy_cast_get_strided_loop},
             {NPY_METH_resolve_descriptors, (void *)&cast_to_string_resolve_descriptors},
             {0, NULL}};
-    PyArrayMethod_Spec spec = {
-        .name = "legacy_cast_to_string",
-        .nin = 1,
-        .nout = 1,
-        .flags = (NPY_ARRAYMETHOD_FLAGS)(NPY_METH_REQUIRES_PYAPI | NPY_METH_NO_FLOATINGPOINT_ERRORS),
-        .dtypes = dtypes,
-        .slots = slots,
-    };
+    PyArrayMethod_Spec spec;
+    spec.name = "legacy_cast_to_string";
+    spec.nin = 1;
+    spec.nout = 1;
+    spec.flags = (NPY_ARRAYMETHOD_FLAGS)(NPY_METH_REQUIRES_PYAPI | NPY_METH_NO_FLOATINGPOINT_ERRORS);
+    spec.dtypes = dtypes;
+    spec.slots = slots;
+
     /* Almost everything can be same-kind cast to string (except unicode) */
     if (other->type_num != NPY_UNICODE) {
         spec.casting = NPY_SAME_KIND_CASTING;  /* same-kind if too short */
@@ -2604,18 +2603,17 @@ PyArray_InitializeStringCasts(void)
             {NPY_METH_get_loop, (void *)&string_to_string_get_loop},
             {NPY_METH_resolve_descriptors, (void *)&string_to_string_resolve_descriptors},
             {0, NULL}};
-    PyArrayMethod_Spec spec = {
-        .name = "string_to_string_cast",
-        .nin = 1,
-        .nout = 1,
-        .casting = NPY_UNSAFE_CASTING,
-        .flags = (NPY_ARRAYMETHOD_FLAGS)(
-                NPY_METH_REQUIRES_PYAPI |
-                NPY_METH_NO_FLOATINGPOINT_ERRORS |
-                NPY_METH_SUPPORTS_UNALIGNED),
-        .dtypes = dtypes,
-        .slots = slots,
-    };
+    PyArrayMethod_Spec spec;
+    spec.name = "string_to_string_cast";
+    spec.nin = 1;
+    spec.nout = 1;
+    spec.casting = NPY_UNSAFE_CASTING;
+    spec.flags = (NPY_ARRAYMETHOD_FLAGS)(
+            NPY_METH_REQUIRES_PYAPI |
+            NPY_METH_NO_FLOATINGPOINT_ERRORS |
+            NPY_METH_SUPPORTS_UNALIGNED);
+    spec.dtypes = dtypes;
+    spec.slots = slots;
 
     dtypes[0] = string;
     dtypes[1] = string;
@@ -3266,15 +3264,15 @@ PyArray_InitializeVoidToVoidCast(void)
             {NPY_METH_get_loop, (void *)&void_to_void_get_loop},
             {NPY_METH_resolve_descriptors, (void *)&void_to_void_resolve_descriptors},
             {0, NULL}};
-    PyArrayMethod_Spec spec = {
-            .name = "void_to_void_cast",
-            .nin = 1,
-            .nout = 1,
-            .casting = (NPY_CASTING)-1,  /* may not cast at all */
-            .flags = (NPY_ARRAYMETHOD_FLAGS)(NPY_METH_REQUIRES_PYAPI | NPY_METH_SUPPORTS_UNALIGNED),
-            .dtypes = dtypes,
-            .slots = slots,
-    };
+    PyArrayMethod_Spec spec;
+    spec.name = "void_to_void_cast";
+    spec.nin = 1;
+    spec.nout = 1;
+    /* may not cast at all */
+    spec.casting = (NPY_CASTING)-1;
+    spec.flags = (NPY_ARRAYMETHOD_FLAGS)(NPY_METH_REQUIRES_PYAPI | NPY_METH_SUPPORTS_UNALIGNED);
+    spec.dtypes = dtypes;
+    spec.slots = slots;
 
     int res = PyArray_AddCastingImplementation_FromSpec(&spec, 1);
     return res;
@@ -3412,16 +3410,14 @@ PyArray_InitializeObjectToObjectCast(void)
     PyType_Slot slots[] = {
             {NPY_METH_get_loop, (void *)&object_to_object_get_loop},
             {0, NULL}};
-    PyArrayMethod_Spec spec = {
-        .name = "object_to_object_cast",
-        .nin = 1,
-        .nout = 1,
-        .casting = NPY_NO_CASTING,
-        .flags = (NPY_ARRAYMETHOD_FLAGS)(
-                NPY_METH_REQUIRES_PYAPI | NPY_METH_SUPPORTS_UNALIGNED),
-        .dtypes = dtypes,
-        .slots = slots,
-    };
+    PyArrayMethod_Spec spec;
+    spec.name = "object_to_object_cast";
+    spec.nin = 1;
+    spec.nout = 1;
+    spec.casting = NPY_NO_CASTING;
+    spec.flags = (NPY_ARRAYMETHOD_FLAGS)(NPY_METH_REQUIRES_PYAPI | NPY_METH_SUPPORTS_UNALIGNED);
+    spec.dtypes = dtypes;
+    spec.slots = slots;
 
     int res = PyArray_AddCastingImplementation_FromSpec(&spec, 1);
     return res;
