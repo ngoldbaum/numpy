@@ -5,13 +5,8 @@
 #include <Python.h>
 #include <structmember.h>
 
-#include "numpy/arrayobject.h"
-#include "numpy/arrayscalars.h"
-
-#include "npy_config.h"
 #include "lowlevel_strided_loops.h"
 
-#include "npy_pycompat.h"
 #include "numpy/npy_math.h"
 
 #include "array_coercion.h"
@@ -23,21 +18,17 @@
 
 #include "scalartypes.h"
 #include "mapping.h"
-#include "legacy_dtype_implementation.h"
-#include "stringdtype/dtype.h"
 
 #include "alloc.h"
 #include "abstractdtypes.h"
 #include "convert_datatype.h"
 #include "_datetime.h"
-#include "datetime_strings.h"
 #include "array_method.h"
 #include "usertypes.h"
 #include "dtype_transfer.h"
-#include "dtype_traversal.h"
 #include "arrayobject.h"
 #include "npy_static_data.h"
-#include "multiarraymodule.h"
+#include "npy_pycompat.h"
 
 /*
  * Required length of string when converting from unsigned integer type.
