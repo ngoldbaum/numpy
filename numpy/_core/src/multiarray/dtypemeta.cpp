@@ -148,15 +148,6 @@ legacy_getitem_using_DType(void *data, void *arr)
 }
 
 /*
- * The descr->f structure used user-DTypes.  Some functions may be filled
- * from the user in the future and more could get defaults for compatibility.
- */
-PyArray_ArrFuncs default_funcs = {
-        .getitem = &legacy_getitem_using_DType,
-        .setitem = &legacy_setitem_using_DType,
-};
-
-/*
  * Internal version of PyArrayInitDTypeMeta_FromSpec.
  *
  * See the documentation of that function for more details.
@@ -180,6 +171,14 @@ dtypemeta_initialize_struct_from_spec(
     if (DType->dt_slots == NULL) {
         return -1;
     }
+
+    /*
+     * The descr->f structure used user-DTypes.  Some functions may be filled
+     * from the user in the future and more could get defaults for compatibility.
+     */
+    PyArray_ArrFuncs default_funcs;
+    default_funcs.getitem = &legacy_getitem_using_DType;
+    default_funcs.setitem = &legacy_setitem_using_DType;
 
     /* Set default values (where applicable) */
     NPY_DT_SLOTS(DType)->discover_descr_from_pyobject =
@@ -1137,22 +1136,59 @@ dtypemeta_wrap_legacy_descriptor(
      * Any Type slots need to be fixed before PyType_Ready, although most
      * will be inherited automatically there.
      */
+    static const char *docstring =
+            "DType class corresponding to the scalar type and dtype of "
+            "the same name.\n\n"
+            "Please see `numpy.dtype` for the typical way to create\n"
+            "dtype instances and :ref:`arrays.dtypes` for additional\n"
+            "information.";
     static PyArray_DTypeMeta prototype = {
-        {{
-            PyVarObject_HEAD_INIT(&PyArrayDTypeMeta_Type, 0)
-            .tp_name = NULL,  /* set below */
-            .tp_basicsize = sizeof(_PyArray_LegacyDescr),
-            .tp_flags = Py_TPFLAGS_DEFAULT,
-            .tp_doc = (
-                "DType class corresponding to the scalar type and dtype of "
-                "the same name.\n\n"
-                "Please see `numpy.dtype` for the typical way to create\n"
-                "dtype instances and :ref:`arrays.dtypes` for additional\n"
-                "information."),
-            .tp_base = NULL,  /* set below */
-            .tp_new = (newfunc)legacy_dtype_default_new,
-        },},
-        .flags = NPY_DT_LEGACY,
+        {
+                {
+                        PyVarObject_HEAD_INIT(&PyArrayDTypeMeta_Type, 0)
+                                NULL, /* set below */
+                        sizeof(_PyArray_LegacyDescr),
+                        0,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        Py_TPFLAGS_DEFAULT,
+                        docstring,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL, /* tp_base set below */
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        (newfunc)legacy_dtype_default_new,
+                },
+        },
+        NULL,
+        0, /* type_num filled in below */
+        NULL,
+        NPY_DT_LEGACY,
         /* Further fields are not common between DTypes */
     };
     memcpy(dtype_class, &prototype, sizeof(PyArray_DTypeMeta));
@@ -1352,22 +1388,48 @@ initialize_legacy_dtypemeta_aliases(_PyArray_LegacyDescr **_builtin_descrs) {
 }
 
 NPY_NO_EXPORT PyTypeObject PyArrayDTypeMeta_Type = {
-    PyVarObject_HEAD_INIT(NULL, 0)
-    .tp_name = "numpy._DTypeMeta",
-    .tp_basicsize = sizeof(PyArray_DTypeMeta),
-    .tp_dealloc = (destructor)dtypemeta_dealloc,
-    /* Types are garbage collected (see dtypemeta_is_gc documentation) */
-    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC,
-    .tp_doc = "Preliminary NumPy API: The Type of NumPy DTypes (metaclass)",
-    .tp_traverse = (traverseproc)dtypemeta_traverse,
-    .tp_members = dtypemeta_members,
-    .tp_getset = dtypemeta_getset,
-    .tp_base = NULL,  /* set to PyType_Type at import time */
-    .tp_init = (initproc)dtypemeta_init,
-    .tp_alloc = dtypemeta_alloc,
-    .tp_new = dtypemeta_new,
-    .tp_is_gc = dtypemeta_is_gc,
+        PyVarObject_HEAD_INIT(NULL, 0) "numpy._DTypeMeta",
+        sizeof(PyArray_DTypeMeta),
+        0,
+        (destructor)dtypemeta_dealloc,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        /* Types are garbage collected (see dtypemeta_is_gc documentation) */
+        Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC,
+        "Preliminary NumPy API: The Type of NumPy DTypes (metaclass)",
+        (traverseproc)dtypemeta_traverse,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        dtypemeta_members,
+        dtypemeta_getset,
+        NULL, /* tp_base set to PyType_Type at import time */
+        NULL,
+        NULL,
+        (initproc)dtypemeta_init,
+        NULL,
+        NULL,
+        dtypemeta_alloc,
+        dtypemeta_new,
+        NULL,
+        dtypemeta_is_gc,
 };
+
 
 PyArray_DTypeMeta *_Bool_dtype = NULL;
 PyArray_DTypeMeta *_Byte_dtype = NULL;
