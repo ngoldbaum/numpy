@@ -20,6 +20,7 @@
 #include "npy_buffer.h"
 #include "npy_static_data.h"
 #include "multiarraymodule.h"
+#include "npy_pycompat.h"
 
 static int
 PyArray_PyIntAsInt_ErrMsg(PyObject *o, const char * msg) NPY_GCC_NONNULL(2);
@@ -173,36 +174,43 @@ PyArray_IntpConverter(PyObject *obj, PyArray_Dims *seq)
         /*
          * `obj` is a sequence converted to the `PySequence_Fast` in `seq_obj`
          */
-        Py_ssize_t len = PySequence_Fast_GET_SIZE(seq_obj);
+        int nd, ret = NPY_SUCCEED;
+        Py_ssize_t len;
+        NPY_BEGIN_CRITICAL_SECTION_SEQUENCE_FAST(obj);
+        len = PySequence_Fast_GET_SIZE(seq_obj);
         if (len > NPY_MAXDIMS) {
             PyErr_Format(PyExc_ValueError,
                     "maximum supported dimension for an ndarray "
                     "is currently %d, found %d", NPY_MAXDIMS, len);
             Py_DECREF(seq_obj);
-            return NPY_FAIL;
+            ret = NPY_FAIL;
         }
-        if (len > 0) {
+        else if (len > 0) {
             seq->ptr = npy_alloc_cache_dim(len);
             if (seq->ptr == NULL) {
                 PyErr_NoMemory();
                 Py_DECREF(seq_obj);
-                return NPY_FAIL;
+                ret = NPY_FAIL;
             }
         }
-
-        seq->len = len;
-        int nd = PyArray_IntpFromIndexSequence(seq_obj,
-                (npy_intp *)seq->ptr, len);
+        if (ret != NPY_FAIL) {
+            seq->len = len;
+            nd = PyArray_IntpFromIndexSequence(
+                    seq_obj, (npy_intp *)seq->ptr, len);
+        }
+        NPY_END_CRITICAL_SECTION_SEQUENCE_FAST();
         Py_DECREF(seq_obj);
 
-        if (nd == -1 || nd != len) {
+        if (ret != NPY_FAIL && (nd == -1 || nd != len)) {
             npy_free_cache_dim_obj(*seq);
             seq->ptr = NULL;
-            return NPY_FAIL;
+            ret = NPY_FAIL;
         }
+        return ret;
     }
 
     return NPY_SUCCEED;
+
 }
 
 /*
