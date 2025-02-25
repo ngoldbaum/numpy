@@ -1163,10 +1163,12 @@ PyArray_DiscoverDTypeAndShape_Recursive(
         }
         return -1;
     }
-    /* The cache takes ownership of the sequence here. */
+    /* The cache takes ownership of seq here. */
     if (npy_new_coercion_cache(obj, seq, 1, coercion_cache_tail_ptr, curr_dims) < 0) {
         return -1;
     }
+
+    NPY_BEGIN_CRITICAL_SECTION_SEQUENCE_FAST(obj);
 
     npy_intp size = PySequence_Fast_GET_SIZE(seq);
     PyObject **objects = PySequence_Fast_ITEMS(seq);
@@ -1175,19 +1177,19 @@ PyArray_DiscoverDTypeAndShape_Recursive(
                      out_shape, 1, &size, NPY_TRUE, flags) < 0) {
         /* But do update, if there this is a ragged case */
         *flags |= FOUND_RAGGED_ARRAY;
-        return max_dims;
+        goto done;
     }
     if (size == 0) {
         /* If the sequence is empty, this must be the last dimension */
         *flags |= MAX_DIMS_WAS_REACHED;
-        return curr_dims + 1;
+        max_dims = curr_dims + 1;
+        goto done;
     }
-
     /* Allow keyboard interrupts. See gh issue 18117. */
     if (PyErr_CheckSignals() < 0) {
-        return -1;
+        max_dims = -1;
+        goto done;
     }
-
     /*
      * For a sequence we need to make a copy of the final aggregate anyway.
      * There's no need to pass explicit `copy=True`, so we switch
@@ -1197,17 +1199,14 @@ PyArray_DiscoverDTypeAndShape_Recursive(
         copy = -1;
     }
 
-    /* Recursive call for each sequence item */
-    for (Py_ssize_t i = 0; i < size; i++) {
+    for (Py_ssize_t i = 0; ((i < size) && (max_dims != -1)); i++) {
         max_dims = PyArray_DiscoverDTypeAndShape_Recursive(
                 objects[i], curr_dims + 1, max_dims,
                 out_descr, out_shape, coercion_cache_tail_ptr, fixed_DType,
                 flags, copy);
-
-        if (max_dims < 0) {
-            return -1;
-        }
     }
+  done:
+    NPY_END_CRITICAL_SECTION_SEQUENCE_FAST();
     return max_dims;
 }
 
