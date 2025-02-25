@@ -23,6 +23,7 @@
 #include "item_selection.h"
 #include "lowlevel_strided_loops.h"
 #include "array_assign.h"
+#include "npy_pycompat.h"
 
 #define NEWAXIS_INDEX -1
 #define ELLIPSIS_INDEX -2
@@ -1480,7 +1481,7 @@ static PyObject*
 arraymultiter_new(PyTypeObject *NPY_UNUSED(subtype), PyObject *args,
                   PyObject *kwds)
 {
-    PyObject *ret, *fast_seq;
+    PyObject *ret = NULL, *fast_seq;
     Py_ssize_t n;
 
     if (kwds != NULL && PyDict_Size(kwds) > 0) {
@@ -1489,17 +1490,23 @@ arraymultiter_new(PyTypeObject *NPY_UNUSED(subtype), PyObject *args,
         return NULL;
     }
 
+    // lock args while we work with it if it's mutable
+    NPY_BEGIN_CRITICAL_SECTION_SEQUENCE_FAST(args);
+
     fast_seq = PySequence_Fast(args, "");  // needed for pypy
-    if (fast_seq == NULL) {
-        return NULL;
+    if (fast_seq != NULL) {
+        n = PySequence_Fast_GET_SIZE(fast_seq);
+        if (n > NPY_MAXARGS) {
+            Py_DECREF(fast_seq);
+            ret = multiiter_wrong_number_of_args();
+        }
     }
-    n = PySequence_Fast_GET_SIZE(fast_seq);
-    if (n > NPY_MAXARGS) {
-        Py_DECREF(fast_seq);
-        return multiiter_wrong_number_of_args();
+    if (ret == NULL) {
+        ret = multiiter_new_impl(n, PySequence_Fast_ITEMS(fast_seq));
     }
-    ret = multiiter_new_impl(n, PySequence_Fast_ITEMS(fast_seq));
     Py_DECREF(fast_seq);
+
+    NPY_END_CRITICAL_SECTION_SEQUENCE_FAST();
     return ret;
 }
 
