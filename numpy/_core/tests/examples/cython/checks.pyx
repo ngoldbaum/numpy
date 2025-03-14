@@ -242,6 +242,25 @@ def npyiter_has_multi_index(it: "nditer"):
     return result
 
 
+def test_multi_index(it: "nditer", cnp.ndarray[cnp.float64_t, ndim=2] arr):
+    cdef cnp.NpyIter* cit = npyiter_from_nditer_obj(it)
+    cdef cnp.NpyIter_GetMultiIndexFunc get_multi_index = \
+        cnp.NpyIter_GetGetMultiIndex(cit, NULL)
+    if get_multi_index == NULL:
+        return False
+    cdef cnp.NpyIter_IterNextFunc iternext = \
+        cnp.NpyIter_GetIterNext(cit, NULL)
+    if iternext == NULL:
+        return False
+    cdef cnp.ndarray[cnp.float64_t, ndim=2] ret = cnp.PyArray_Copy(arr)
+    cdef cnp.npy_intp* multi_index = <cnp.npy_intp*>cnp.PyArray_DATA(ret)
+    cdef int ndim = cnp.PyArray_NDIM(arr)
+    while iternext(cit):
+        get_multi_index(cit, multi_index)
+        multi_index += ndim
+    return 1
+
+
 def npyiter_has_finished(it: "nditer"):
     cdef cnp.NpyIter* cit
     try:
