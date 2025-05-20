@@ -4,6 +4,8 @@ set -xe
 
 PROJECT_DIR="$1"
 
+cd tools
+
 python -m pip install threadpoolctl
 python -c "import numpy; numpy.show_config()"
 
