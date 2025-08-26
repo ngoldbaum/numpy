@@ -303,13 +303,13 @@ can_elide_temp(PyObject *olhs, PyObject *orhs, int *cannot)
      * array of a basic type, own its data and size larger than threshold
      */
     PyArrayObject *alhs = (PyArrayObject *)olhs;
-    if (Py_REFCNT(olhs) != 1 || !PyArray_CheckExact(olhs) ||
+    if (!check_unique_temporary(olhs)||
+            !PyArray_CheckExact(olhs) ||
             !PyArray_ISNUMBER(alhs) ||
             !PyArray_CHKFLAGS(alhs, NPY_ARRAY_OWNDATA) ||
             !PyArray_ISWRITEABLE(alhs) ||
             PyArray_CHKFLAGS(alhs, NPY_ARRAY_WRITEBACKIFCOPY) ||
-            PyArray_NBYTES(alhs) < NPY_MIN_ELIDE_BYTES ||
-            !check_unique_temporary(olhs)) {
+            PyArray_NBYTES(alhs) < NPY_MIN_ELIDE_BYTES) {
         return 0;
     }
     if (PyArray_CheckExact(orhs) ||
@@ -382,12 +382,12 @@ NPY_NO_EXPORT int
 can_elide_temp_unary(PyArrayObject * m1)
 {
     int cannot;
-    if (Py_REFCNT(m1) != 1 || !PyArray_CheckExact(m1) ||
+    if (!check_unique_temporary((PyObject *)m1) ||
+            !PyArray_CheckExact(m1) ||
             !PyArray_ISNUMBER(m1) ||
             !PyArray_CHKFLAGS(m1, NPY_ARRAY_OWNDATA) ||
             !PyArray_ISWRITEABLE(m1) ||
-            PyArray_NBYTES(m1) < NPY_MIN_ELIDE_BYTES ||
-            !check_unique_temporary((PyObject *)m1)) {
+            PyArray_NBYTES(m1) < NPY_MIN_ELIDE_BYTES) {
         return 0;
     }
     if (check_callers(&cannot)) {
