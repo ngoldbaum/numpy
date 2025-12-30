@@ -4,8 +4,6 @@
 
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
-#define Py_BUILD_CORE
-#include <internal/pycore_object.h>
 
 #include "npy_config.h"
 
@@ -148,7 +146,8 @@ init_extobj(void)
         return -1;
     }
 
-    _Py_SetImmortal(npy_static_pydata.default_extobj_capsule);
+    // only a hint and it doesn't matter if this returns 0 or 1
+    PyUnstable_Object_EnableDeferredRefcount(npy_static_pydata.default_extobj_capsule);
 
     npy_static_pydata.npy_extobj_contextvar = PyContextVar_New(
             "numpy.ufunc.extobj", npy_static_pydata.default_extobj_capsule);
