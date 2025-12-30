@@ -4,6 +4,8 @@
 
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
+#define Py_BUILD_CORE
+#include <internal/pycore_object.h>
 
 #include "npy_config.h"
 
@@ -145,6 +147,9 @@ init_extobj(void)
     if (npy_static_pydata.default_extobj_capsule == NULL) {
         return -1;
     }
+
+    _Py_SetImmortal(npy_static_pydata.default_extobj_capsule);
+
     npy_static_pydata.npy_extobj_contextvar = PyContextVar_New(
             "numpy.ufunc.extobj", npy_static_pydata.default_extobj_capsule);
     if (npy_static_pydata.npy_extobj_contextvar == NULL) {

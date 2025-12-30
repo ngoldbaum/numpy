@@ -17,6 +17,8 @@
 
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
+#define Py_BUILD_CORE
+#include <internal/pycore_object.h>
 #include <structmember.h>
 
 #include <numpy/npy_common.h>
@@ -5172,6 +5174,8 @@ _multiarray_umath_exec(PyObject *m) {
     if (PyDataMem_DefaultHandler == NULL) {
         return -1;
     }
+
+    _Py_SetImmortal(PyDataMem_DefaultHandler);
 
     /*
      * Initialize the context-local current handler
