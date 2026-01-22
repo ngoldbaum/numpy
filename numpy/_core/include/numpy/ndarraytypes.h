@@ -608,6 +608,18 @@ typedef struct {
                                 NPY_ITEM_IS_POINTER | NPY_ITEM_REFCOUNT | \
                                 NPY_NEEDS_INIT | NPY_NEEDS_PYAPI)
 
+#ifdef _Py_OPAQUE_PYOBJECT
+
+typedef struct PyArray_Descr PyArray_Descr;
+typedef struct _PyArray_LegacyDescr _PyArray_LegacyDescr;
+typedef struct PyArray_DescrProto PyArray_DescrProto;
+typedef struct PyArray_ArrayDescr PyArray_ArrayDescr;
+typedef struct PyArrayObject_fields PyArrayObject_fields;
+typedef struct PyArrayObject PyArrayObject;
+typedef struct PyArray_Chunk PyArray_Chunk;
+
+#else
+
 #if NPY_FEATURE_VERSION >= NPY_2_0_API_VERSION
 /*
  * Public version of the Descriptor struct as of 2.x
@@ -856,6 +868,8 @@ typedef struct {
         npy_intp len;
         int flags;
 } PyArray_Chunk;
+
+#endif // _Py_OPAQUE_PYOBJECT
 
 typedef struct {
     NPY_DATETIMEUNIT base;
@@ -1186,6 +1200,12 @@ typedef struct PyArrayIterObject_tag PyArrayIterObject;
 typedef char* (*npy_iter_get_dataptr_t)(
         PyArrayIterObject* iter, const npy_intp*);
 
+#ifdef _Py_OPAQUE_PYOBJECT
+
+struct PyArrayIterObject_tag;
+
+#else
+
 struct PyArrayIterObject_tag {
         PyObject_HEAD
         int               nd_m1;            /* number of dimensions - 1 */
@@ -1205,6 +1225,7 @@ struct PyArrayIterObject_tag {
         npy_iter_get_dataptr_t translate;
 } ;
 
+#endif // _Py_OPAQUE_PYOBJECT
 
 /* Iterator API */
 #define PyArrayIter_Check(op) PyObject_TypeCheck((op), &PyArrayIter_Type)
@@ -1319,6 +1340,12 @@ struct PyArrayIterObject_tag {
  * with this structure.
  */
 
+#ifdef _Py_OPAQUE_PYOBJECT
+
+typedef struct PyArrayMultiIterObject PyArrayMultiIterObject;
+
+#else
+
 typedef struct {
         PyObject_HEAD
         int                  numiter;                 /* number of iters */
@@ -1346,6 +1373,8 @@ typedef struct {
         PyArrayIterObject    *iters[];
 #endif
 } PyArrayMultiIterObject;
+
+#endif // _Py_OPAQUE_PYOBJECT
 
 #define _PyMIT(m) ((PyArrayMultiIterObject *)(m))
 #define PyArray_MultiIter_RESET(multi) do {                                   \
@@ -1389,6 +1418,7 @@ typedef struct {
 #define PyArray_MultiIter_NOTDONE(multi)                \
         (_PyMIT(multi)->index < _PyMIT(multi)->size)
 
+#ifndef _Py_OPAQUE_PYOBJECT
 
 static NPY_INLINE int
 PyArray_MultiIter_NUMITER(PyArrayMultiIterObject *multi)
@@ -1431,6 +1461,7 @@ PyArray_MultiIter_ITERS(PyArrayMultiIterObject *multi)
     return (void**)multi->iters;
 }
 
+#endif // _Py_OPAQUE_PYOBJECT
 
 enum {
     NPY_NEIGHBORHOOD_ITER_ZERO_PADDING,
@@ -1439,6 +1470,12 @@ enum {
     NPY_NEIGHBORHOOD_ITER_CIRCULAR_PADDING,
     NPY_NEIGHBORHOOD_ITER_MIRROR_PADDING
 };
+
+#ifdef _Py_OPAQUE_PYOBJECT
+
+typedef struct PyArrayNeighborhoodIterObject PyArrayNeighborhoodIterObject;
+
+#    else
 
 typedef struct {
     PyObject_HEAD
@@ -1484,6 +1521,8 @@ typedef struct {
     int mode;
 } PyArrayNeighborhoodIterObject;
 
+#endif // _Py_OPAQUE_PYOBJECT
+
 /*
  * Neighborhood iterator API
  */
@@ -1502,10 +1541,11 @@ PyArrayNeighborhoodIter_Next2D(PyArrayNeighborhoodIterObject* iter);
  * Include inline implementations - functions defined there are not
  * considered public API
  */
+#ifndef _Py_OPAQUE_PYOBJECT
 #define NUMPY_CORE_INCLUDE_NUMPY__NEIGHBORHOOD_IMP_H_
 #include "_neighborhood_iterator_imp.h"
 #undef NUMPY_CORE_INCLUDE_NUMPY__NEIGHBORHOOD_IMP_H_
-
+#endif // _Py_OPAQUE_PYOBJECT
 
 
 /* The default array type */
