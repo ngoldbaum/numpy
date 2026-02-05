@@ -249,78 +249,65 @@ typedef PyUFunc_fields PyUFuncObject;
 typedef struct _tagPyUFuncObject PyUFuncObject;
 #endif
 
-static inline PyUFunc_fields *
-PyUFunc_GET_ITEM_DATA(const PyUFuncObject *ufunc)
-{
-    return (PyUFunc_fields *)ufunc;
-}
+#define PyUFunc_GET_ITEM_DATA(ufunc) ((PyUFunc_fields *)ufunc)
 
-#define UFUNC_ACCESSOR(FIELD, field, type)                  \
-    static inline type                                      \
-    PyUFunc_##FIELD(const PyUFuncObject *ufunc)       \
-    {                                                       \
-        return PyUFunc_GET_ITEM_DATA(ufunc)->field;   \
-    }
+#define UFUNC_ACCESSOR(ufunc, field)             \
+    PyUFunc_GET_ITEM_DATA(ufunc)->field
+#define UFUNC_SETTER(ufunc, field, value)             \
+    PyUFunc_GET_ITEM_DATA(ufunc)->field = value
 
-#define UFUNC_SETTER(FIELD, field, type)                        \
-    static inline void                                          \
-    PyUFunc_SET_##FIELD(PyUFuncObject *ufunc, type field) \
-    {                                                           \
-        PyUFunc_GET_ITEM_DATA(ufunc)->field = field;      \
-    }
+#define UFUNC_SETTER_INDEX(ufunc, field, index, value)        \
+    PyUFunc_GET_ITEM_DATA(ufunc)->field[index] = value
 
-#define UFUNC_SETTER_INDEX(FIELD, field, type)                          \
-    static inline void                                                  \
-    PyUFunc_SET_##FIELD(                                          \
-        PyUFuncObject *ufunc, int index, type field)                    \
-        {                                                               \
-            PyUFunc_GET_ITEM_DATA(ufunc)->field[index] = field;   \
-        }
-
-UFUNC_ACCESSOR(NIN, nin, int);
-UFUNC_ACCESSOR(NOUT, nout, int);
-UFUNC_ACCESSOR(NARGS, nargs, int);
-UFUNC_ACCESSOR(IDENTITY, identity, int);
-UFUNC_ACCESSOR(FUNCTIONS, functions, PyUFuncGenericFunction *);
-UFUNC_SETTER_INDEX(FUNCTIONS, functions, PyUFuncGenericFunction);
-UFUNC_ACCESSOR(DATA, data, void *const *);
-UFUNC_ACCESSOR(NTYPES, ntypes, int);
-UFUNC_ACCESSOR(NAME, name, const char *);
-UFUNC_ACCESSOR(TYPES, types, const char *);
-UFUNC_ACCESSOR(DOC, doc, const char *);
-UFUNC_ACCESSOR(PTR, ptr, void *);
-UFUNC_SETTER(PTR, ptr, void *);
-UFUNC_ACCESSOR(OBJ, obj, PyObject *);
-UFUNC_SETTER(OBJ, obj, PyObject *);
-UFUNC_ACCESSOR(USERLOOPS, userloops, PyObject *);
-UFUNC_SETTER(USERLOOPS, userloops, PyObject *);
-UFUNC_ACCESSOR(CORE_ENABLED, core_enabled, int);
-UFUNC_ACCESSOR(CORE_NUM_DIM_IX, core_num_dim_ix, int);
-UFUNC_ACCESSOR(CORE_NUM_DIMS, core_num_dims, int *);
-UFUNC_ACCESSOR(CORE_DIM_IXS, core_dim_ixs, int *);
-UFUNC_ACCESSOR(CORE_OFFSETS, core_offsets, int *);
-UFUNC_ACCESSOR(CORE_SIGNATURE, core_signature, char *);
-UFUNC_ACCESSOR(TYPE_RESOLVER, type_resolver, PyUFunc_TypeResolutionFunc *);
-UFUNC_SETTER(TYPE_RESOLVER, type_resolver, PyUFunc_TypeResolutionFunc *);
-UFUNC_ACCESSOR(DICT, dict, PyObject *);
+#define PyUFunc_NIN(ufunc) UFUNC_ACCESSOR(ufunc, nin)
+#define PyUFunc_NOUT(ufunc) UFUNC_ACCESSOR(ufunc, nout)
+#define PyUFunc_NARGS(ufunc) UFUNC_ACCESSOR(ufunc, nargs)
+#define PyUFunc_IDENTITY(ufunc) UFUNC_ACCESSOR(ufunc, identity)
+#define PyUFunc_FUNCTIONS(ufunc) UFUNC_ACCESSOR(ufunc, functions)
+#define PyUFunc_SET_FUNCTIONS(ufunc, index, value)    \
+    UFUNC_SETTER_INDEX(ufunc, functions, index, value)
+#define PyUFunc_DATA(ufunc) UFUNC_ACCESSOR(ufunc, data)
+#define PyUFunc_NTYPES(ufunc) UFUNC_ACCESSOR(ufunc, ntypes)
+#define PyUFunc_NAME(ufunc) UFUNC_ACCESSOR(ufunc, name)
+#define PyUFunc_TYPES(ufunc) UFUNC_ACCESSOR(ufunc, types)
+#define PyUFunc_DOC(ufunc) UFUNC_ACCESSOR(ufunc, doc)
+#define PyUFunc_PTR(ufunc) UFUNC_ACCESSOR(ufunc, ptr)
+#define PyUFunc_SET_PTR(ufunc, value) UFUNC_SETTER(ufunc, ptr, value)
+#define PyUFunc_OBJ(ufunc) UFUNC_ACCESSOR(ufunc, obj)
+#define PyUFunc_SET_OBJ(ufunc, value) UFUNC_SETTER(ufunc, obj, value)
+#define PyUFunc_USERLOOPS(ufunc) UFUNC_ACCESSOR(ufunc, userloops)
+#define PyUFunc_SET_USERLOOPS(ufunc, value)     \
+    UFUNC_SETTER(ufunc, userloops, value)
+#define PyUFunc_CORE_ENABLED(ufunc) UFUNC_ACCESSOR(ufunc, core_enabled)
+#define PyUFunc_CORE_NUM_DIM_IX(ufunc) UFUNC_ACCESSOR(ufunc, core_num_dim_ix)
+#define PyUFunc_CORE_NUM_DIMS(ufunc) UFUNC_ACCESSOR(ufunc, core_num_dims)
+#define PyUFunc_CORE_DIM_IXS(ufunc) UFUNC_ACCESSOR(ufunc, core_dim_ixs)
+#define PyUFunc_CORE_OFFSETS(ufunc) UFUNC_ACCESSOR(ufunc, core_offsets)
+#define PyUFunc_CORE_SIGNATURE(ufunc) UFUNC_ACCESSOR(ufunc, core_signature)
+#define PyUFunc_TYPE_RESOLVER(ufunc) UFUNC_ACCESSOR(ufunc, type_resolver)
+#define PyUFunc_SET_TYPE_RESOLVER(ufunc, value) \
+    UFUNC_SETTER(ufunc, type_resolver, value)
+#define PyUFunc_DICT(ufunc) UFUNC_ACCESSOR(ufunc, dict)
 #if !defined(Py_LIMITED_API) || PY_LIMITED_API >= 0x030C0000
-UFUNC_ACCESSOR(VECTORCALL, vectorcall, vectorcallfunc);
+#define PyUFunc_VECTORCALL(ufunc) UFUNC_ACCESSOR(ufunc, vectorcall)
 #else
-UFUNC_ACCESSOR(VECTORCALL, vectorcall, void*);
+#define PyUFunc_VECTORCALL(ufunc) UFUNC_ACCESSOR(ufunc, vectorcall)
 #endif
-UFUNC_ACCESSOR(OP_FLAGS, op_flags, npy_uint32 *);
-UFUNC_SETTER_INDEX(OP_FLAGS, op_flags, npy_uint32);
-UFUNC_ACCESSOR(ITER_FLAGS, iter_flags, npy_uint32);
-UFUNC_SETTER(ITER_FLAGS, iter_flags, npy_uint32);
+#define PyUFunc_OP_FLAGS(ufunc) UFUNC_ACCESSOR(ufunc, op_flags)
+#define PyUFunc_SET_OP_FLAGS(ufunc, index, value)       \
+    UFUNC_SETTER_INDEX(ufunc, op_flags, index, value)
+#define PyUFunc_ITER_FLAGS(ufunc) UFUNC_ACCESSOR(ufunc, iter_flags)
+#define PyUFunc_SET_ITER_FLAGS(ufunc, value)    \
+    UFUNC_SETTER(ufunc, iter_flags, value)
 #if NPY_FEATURE_VERSION >= NPY_1_16_API_VERSION
-UFUNC_ACCESSOR(CORE_DIM_SIZES, core_dim_sizes, npy_intp *);
-UFUNC_ACCESSOR(CORE_DIM_FLAGS, core_dim_flags, npy_uint32 *);
-UFUNC_ACCESSOR(IDENTITY_VALUE, identity_value, PyObject *);
+#define PyUFunc_CORE_DIM_SIZES(ufunc) UFUNC_ACCESSOR(ufunc, core_dim_sizes)
+#define PyUFunc_CORE_DIM_FLAGS(ufunc) UFUNC_ACCESSOR(ufunc, core_dim_flags)
+#define PyUFunc_IDENTITY_VALUE(ufunc) UFUNC_ACCESSOR(ufunc, identity_value)
 #endif
 #if NPY_FEATURE_VERSION >= NPY_1_22_API_VERSION
-UFUNC_ACCESSOR(_DISPATCH_CACHE, _dispatch_cache, void *);
-UFUNC_ACCESSOR(_LOOPS, _loops, PyObject *);
-UFUNC_SETTER(_LOOPS, _loops, PyObject *);
+#define PyUFunc__DISPATCH_CACHE(ufunc) UFUNC_ACCESSOR(ufunc, _dispatch_cache)
+#define PyUFunc__LOOPS(ufunc) UFUNC_ACCESSOR(ufunc, _loops)
+#define PyUFunc_SET__LOOPS(ufunc, value) UFUNC_SETTER(ufunc, _loops, value)
 #endif
 
 #include "arrayobject.h"
