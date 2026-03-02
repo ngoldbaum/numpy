@@ -189,7 +189,7 @@ PyDataType_SET_BYTEORDER(PyArray_Descr *dtype, char byteorder)
             if (legacy_only && !PyDataType_ISLEGACY(dtype)) {  \
                 return (type)0;                                \
             }                                                  \
-            return _PyArray_LegacyDescr_GET_ITEM_DATA(dtype)->field;     \
+            return PyArray_LegacyDescr_GET_ITEM_DATA((const _PyArray_LegacyDescr *)dtype)->field;     \
         }
 #    else /* compiling for both 1.x and 2.x */
 
