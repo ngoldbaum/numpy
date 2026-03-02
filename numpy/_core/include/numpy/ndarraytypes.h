@@ -696,11 +696,8 @@ PyDataType_GET_ITEM_DATA(const PyArray_Descr *dtype)
     return (PyArray_Descr_fields *)dtype;
 }
 #else
-/*NUMPY_API
- * WIP
- */
-NPY_NO_EXPORT
-PyArray_Descr_fields *
+
+PyAPI_FUNC(PyArray_Descr_fields *)
 _PyDataType_GET_ITEM_DATA(const PyArray_Descr *dtype);
 #define PyDataType_GET_ITEM_DATA(dtype) _PyDataType_GET_ITEM_DATA((PyArray_Descr *)(dtype))
 #endif
@@ -743,10 +740,8 @@ typedef struct {
 
 #ifdef _Py_OPAQUE_PYOBJECT
 typedef struct _PyArray_LegacyDescrTag _PyArray_LegacyDescr;
-/*NUMPY_API
- * WIP
- */
-_PyArray_LegacyDescr_fields* _PyArray_LegacyDescr_GET_ITEM_DATA(const _PyArray_LegacyDescr *dtype);
+
+PyAPI_FUNC(_PyArray_LegacyDescr_fields*) _PyArray_LegacyDescr_GET_ITEM_DATA(const _PyArray_LegacyDescr *dtype);
 #define PyArray_LegacyDescr_GET_ITEM_DATA(dtype) _PyArray_LegacyDescr_GET_ITEM_DATA((const _PyArray_LegacyDescr *)dtype)
 #else
 typedef _PyArray_LegacyDescr_fields _PyArray_LegacyDescr;
@@ -895,10 +890,8 @@ PyArray_GET_ITEM_DATA(const PyArrayObject *arr)
 }
 #else
 typedef struct tagPyArrayObject PyArrayObject;
-/*NUMPY_API
- * WIP
- */
-PyArrayObject_fields *
+
+PyAPI_FUNC(PyArrayObject_fields *)
 _PyArray_GET_ITEM_DATA(const PyArrayObject *arr);
 #define PyArray_GET_ITEM_DATA(arr) _PyArray_GET_ITEM_DATA((PyArrayObject *)(arr))
 #endif
@@ -1286,11 +1279,8 @@ PyArrayIter_GET_ITEM_DATA(const PyArrayIterObject *iter)
     return (PyArrayIterObject_fields *)iter;
 }
 #else
-/*NUMPY_API
- * WIP
- */
-NPY_NO_EXPORT
-PyArrayIterObject_fields *_PyArrayIter_GET_ITEM_DATA(const PyArrayIterObject *iter);
+
+PyAPI_FUNC(PyArrayIterObject_fields *)_PyArrayIter_GET_ITEM_DATA(const PyArrayIterObject *iter);
 #define PyArrayIter_GET_ITEM_DATA(iter) _PyArrayIter_GET_ITEM_DATA((PyArrayIterObject *)(iter))
 #endif
 
@@ -1444,9 +1434,7 @@ static inline PyArrayMultiIterObject_fields *PyArrayMultiIter_GET_ITEM_DATA(cons
 }
 #else
 typedef struct PyArrayMultiIterObject_tag PyArrayMultiIterObject;
-/*NUMPY_API
- * WIP
- */
+
 PyArrayMultiIterObject_fields *_PyArrayMultiIter_GET_ITEM_DATA(const PyArrayMultiIterObject *multi);
 #define PyArrayMultiIter_GET_ITEM_DATA(multi) _PyArrayMultiIter_GET_ITEM_DATA((PyArrayMultiIterObject *)(multi))
 #endif
@@ -1596,9 +1584,7 @@ static inline PyArrayNeighborhoodIterObject_fields *PyArrayNeighborhoodIter_GET_
 }
 #else
 typedef struct PyArrayNeighborhoodIterObject_tag PyArrayNeighborhoodIterObject;
-/*NUMPY_API
- * WIP
- */
+
 PyArrayNeighborhoodIterObject_fields *_PyArrayNeighborhoodIter_GET_ITEM_DATA(const PyArrayNeighborhoodIterObject *iter);
 #define PyArrayNeighborhoodIter_GET_ITEM_DATA(iter) _PyArrayNeighborhoodIter_GET_ITEM_DATA((PyArrayNeighborhoodIterObject *)(iter))
 #endif
