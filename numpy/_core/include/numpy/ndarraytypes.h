@@ -696,9 +696,6 @@ PyDataType_GET_ITEM_DATA(const PyArray_Descr *dtype)
     return (PyArray_Descr_fields *)dtype;
 }
 #else
-
-PyAPI_FUNC(PyArray_Descr_fields *)
-_PyDataType_GET_ITEM_DATA(const PyArray_Descr *dtype);
 #define PyDataType_GET_ITEM_DATA(dtype) _PyDataType_GET_ITEM_DATA((PyArray_Descr *)(dtype))
 #endif
 // defined here to avoid a forward-declaration
@@ -891,8 +888,6 @@ PyArray_GET_ITEM_DATA(const PyArrayObject *arr)
 #else
 typedef struct tagPyArrayObject PyArrayObject;
 
-PyAPI_FUNC(PyArrayObject_fields *)
-_PyArray_GET_ITEM_DATA(const PyArrayObject *arr);
 #define PyArray_GET_ITEM_DATA(arr) _PyArray_GET_ITEM_DATA((PyArrayObject *)(arr))
 #endif
 
