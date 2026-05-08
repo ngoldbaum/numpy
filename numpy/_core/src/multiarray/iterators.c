@@ -128,7 +128,7 @@ PyArray_IterNew(PyObject *obj)
         return NULL;
     }
 
-    it = (PyArrayIterObject *)PyArray_malloc(sizeof(PyArrayIterObject));
+    it = (PyArrayIterObject *)PyMem_RawMalloc(sizeof(PyArrayIterObject));
     if (it == NULL) {
         PyErr_NoMemory();
         return NULL;
@@ -167,7 +167,7 @@ PyArray_BroadcastToShape(PyObject *obj, npy_intp *dims, int nd)
     if (!compat) {
         goto err;
     }
-    it = (PyArrayIterObject *)PyArray_malloc(sizeof(PyArrayIterObject));
+    it = (PyArrayIterObject *)PyMem_RawMalloc(sizeof(PyArrayIterObject));
     if (it == NULL) {
         return NULL;
     }
@@ -345,7 +345,7 @@ arrayiter_dealloc(PyArrayIterObject *it)
      * which does not call this function.
      */
     array_iter_base_dealloc(it);
-    PyArray_free(it);
+    PyMem_RawFree(it);
 }
 
 static Py_ssize_t
@@ -1216,7 +1216,7 @@ multiiter_new_impl(int n_args, PyObject **args)
     PyArrayMultiIterObject *multi;
     int i;
 
-    multi = PyArray_malloc(sizeof(PyArrayMultiIterObject));
+    multi = PyMem_RawMalloc(sizeof(PyArrayMultiIterObject));
     if (multi == NULL) {
         return PyErr_NoMemory();
     }
@@ -1667,7 +1667,7 @@ PyArray_NeighborhoodIterNew(PyArrayIterObject *x, const npy_intp *bounds,
     int i;
     PyArrayNeighborhoodIterObject *ret;
 
-    ret = PyArray_malloc(sizeof(*ret));
+    ret = PyMem_RawMalloc(sizeof(*ret));
     if (ret == NULL) {
         return NULL;
     }
@@ -1756,7 +1756,7 @@ PyArray_NeighborhoodIterNew(PyArrayIterObject *x, const npy_intp *bounds,
 clean_x:
     Py_DECREF(ret->_internal_iter);
     array_iter_base_dealloc((PyArrayIterObject*)ret);
-    PyArray_free((PyArrayObject*)ret);
+    PyMem_RawFree((PyArrayObject*)ret);
     return NULL;
 }
 
@@ -1771,7 +1771,7 @@ static void neighiter_dealloc(PyArrayNeighborhoodIterObject* iter)
     Py_DECREF(iter->_internal_iter);
 
     array_iter_base_dealloc((PyArrayIterObject*)iter);
-    PyArray_free((PyArrayObject*)iter);
+    PyMem_RawFree((PyArrayObject*)iter);
 }
 
 NPY_NO_EXPORT PyTypeObject PyArrayNeighborhoodIter_Type = {
