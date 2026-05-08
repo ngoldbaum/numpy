@@ -344,7 +344,7 @@ _convert_from_tuple(PyObject *obj, int align)
             goto fail;
         }
         newdescr->elsize = nbytes;
-        newdescr->subarray = PyArray_malloc(sizeof(PyArray_ArrayDescr));
+        newdescr->subarray = PyMem_RawMalloc(sizeof(PyArray_ArrayDescr));
         if (newdescr->subarray == NULL) {
             Py_DECREF(newdescr);
             PyErr_NoMemory();
@@ -1991,7 +1991,7 @@ PyArray_DescrNew(PyArray_Descr *base_descr)
     Py_XINCREF(newdescr->fields);
     Py_XINCREF(newdescr->names);
     if (newdescr->subarray) {
-        newdescr->subarray = PyArray_malloc(sizeof(PyArray_ArrayDescr));
+        newdescr->subarray = PyMem_RawMalloc(sizeof(PyArray_ArrayDescr));
         if (newdescr->subarray == NULL) {
             Py_DECREF(newdescr);
             return (PyArray_Descr *)PyErr_NoMemory();
@@ -2036,7 +2036,7 @@ arraydescr_dealloc(PyArray_Descr *self)
     if (lself->subarray) {
         Py_XDECREF(lself->subarray->shape);
         Py_DECREF(lself->subarray->base);
-        PyArray_free(lself->subarray);
+        PyMem_RawFree(lself->subarray);
     }
     Py_XDECREF(lself->metadata);
     NPY_AUXDATA_FREE(lself->c_metadata);
@@ -3031,7 +3031,7 @@ arraydescr_setstate(_PyArray_LegacyDescr *self, PyObject *args)
     if (self->subarray) {
         Py_XDECREF(self->subarray->base);
         Py_XDECREF(self->subarray->shape);
-        PyArray_free(self->subarray);
+        PyMem_RawFree(self->subarray);
     }
     self->subarray = NULL;
 
@@ -3071,7 +3071,7 @@ arraydescr_setstate(_PyArray_LegacyDescr *self, PyObject *args)
             return NULL;
         }
 
-        self->subarray = PyArray_malloc(sizeof(PyArray_ArrayDescr));
+        self->subarray = PyMem_RawMalloc(sizeof(PyArray_ArrayDescr));
         if (self->subarray == NULL) {
             return PyErr_NoMemory();
         }

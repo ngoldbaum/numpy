@@ -2812,7 +2812,7 @@ PyArray_MapIterNew(npy_index_info *indices , int index_num, int index_type,
     }
 
     /* create new MapIter object */
-    mit = (PyArrayMapIterObject *)PyArray_malloc(
+    mit = (PyArrayMapIterObject *)PyMem_RawMalloc(
             sizeof(PyArrayMapIterObject) + sizeof(NPY_cast_info));
     if (mit == NULL) {
         Py_DECREF(intp_descr);
@@ -3462,7 +3462,7 @@ arraymapiter_dealloc(PyArrayMapIterObject *mit)
     if (mit->extra_op_iter != NULL) {
         NpyIter_Deallocate(mit->extra_op_iter);
     }
-    PyArray_free(mit);
+    PyMem_RawFree(mit);
 }
 
 /*

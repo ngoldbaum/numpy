@@ -302,7 +302,7 @@ PyArray_AsCArray(PyObject **op, void *ptr, npy_intp *dims, int nd,
         break;
     case 2:
         n = PyArray_DIMS(ap)[0];
-        ptr2 = (char **)PyArray_malloc(n * sizeof(char *));
+        ptr2 = (char **)PyMem_RawMalloc(n * sizeof(char *));
         if (!ptr2) {
             Py_DECREF(ap);
             PyErr_NoMemory();
@@ -316,7 +316,7 @@ PyArray_AsCArray(PyObject **op, void *ptr, npy_intp *dims, int nd,
     case 3:
         n = PyArray_DIMS(ap)[0];
         m = PyArray_DIMS(ap)[1];
-        ptr3 = (char ***)PyArray_malloc(n*(m+1) * sizeof(char *));
+        ptr3 = (char ***)PyMem_RawMalloc(n*(m+1) * sizeof(char *));
         if (!ptr3) {
             Py_DECREF(ap);
             PyErr_NoMemory();
@@ -350,7 +350,7 @@ PyArray_Free(PyObject *op, void *ptr)
         return -1;
     }
     if (PyArray_NDIM(ap) >= 2) {
-        PyArray_free(ptr);
+        PyMem_RawFree(ptr);
     }
     Py_DECREF(ap);
     return 0;
@@ -683,7 +683,7 @@ PyArray_ConcatenateInto(PyObject *op,
         return NULL;
     }
     narrays = (int)narrays_true;
-    arrays = PyArray_malloc(narrays * sizeof(arrays[0]));
+    arrays = PyMem_RawMalloc(narrays * sizeof(arrays[0]));
     if (arrays == NULL) {
         PyErr_NoMemory();
         return NULL;
@@ -717,7 +717,7 @@ PyArray_ConcatenateInto(PyObject *op,
     for (iarrays = 0; iarrays < narrays; ++iarrays) {
         Py_DECREF(arrays[iarrays]);
     }
-    PyArray_free(arrays);
+    PyMem_RawFree(arrays);
 
     return (PyObject *)ret;
 
@@ -726,7 +726,7 @@ fail:
     for (iarrays = 0; iarrays < narrays; ++iarrays) {
         Py_DECREF(arrays[iarrays]);
     }
-    PyArray_free(arrays);
+    PyMem_RawFree(arrays);
 
     return NULL;
 }
@@ -1291,7 +1291,7 @@ _pyarray_revert(PyArrayObject *ret)
         copyswapn(op, os, NULL, 0, length, 1, NULL);
     }
     else {
-        char *tmp = PyArray_malloc(PyArray_ITEMSIZE(ret));
+        char *tmp = PyMem_RawMalloc(PyArray_ITEMSIZE(ret));
         if (tmp == NULL) {
             PyErr_NoMemory();
             return -1;
@@ -1304,7 +1304,7 @@ _pyarray_revert(PyArrayObject *ret)
             sw1 += os;
             sw2 -= os;
         }
-        PyArray_free(tmp);
+        PyMem_RawFree(tmp);
     }
 
     return 0;
@@ -2188,7 +2188,7 @@ array_scalar(PyObject *NPY_UNUSED(ignored), PyObject *args, PyObject *kwds)
             if (typecode->elsize == 0) {
                 typecode->elsize = 1;
             }
-            dptr = PyArray_malloc(typecode->elsize);
+            dptr = PyMem_RawMalloc(typecode->elsize);
             if (dptr == NULL) {
                 return PyErr_NoMemory();
             }
@@ -2228,7 +2228,7 @@ array_scalar(PyObject *NPY_UNUSED(ignored), PyObject *args, PyObject *kwds)
 
     /* free dptr which contains zeros */
     if (alloc) {
-        PyArray_free(dptr);
+        PyMem_RawFree(dptr);
     }
     Py_XDECREF(tmpobj);
     return ret;
@@ -5026,7 +5026,7 @@ _multiarray_umath_exec(PyObject *m) {
     PyArrayIter_Type.tp_iter = PyObject_SelfIter;
     NpyIter_Type.tp_iter = PyObject_SelfIter;
     PyArrayMultiIter_Type.tp_iter = PyObject_SelfIter;
-    PyArrayMultiIter_Type.tp_free = PyArray_free;
+    PyArrayMultiIter_Type.tp_free = PyMem_RawFree;
     if (PyType_Ready(&PyArrayIter_Type) < 0) {
         return -1;
     }
