@@ -426,6 +426,9 @@ PyArray_PutTo(PyArrayObject *self, PyObject* values0, PyObject *indices0,
         Py_INCREF(PyArray_DESCR(self));
         obj = (PyArrayObject *)PyArray_FromArray(self,
                                                  PyArray_DESCR(self), flags);
+        if (obj == NULL) {
+            goto fail;
+        }
         copied = 1;
         assert(self != obj);
         self = obj;
@@ -720,6 +723,9 @@ PyArray_PutMask(PyArrayObject *self, PyObject* values0, PyObject* mask0)
         dtype = PyArray_DESCR(self);
         Py_INCREF(dtype);
         obj = (PyArrayObject *)PyArray_FromArray(self, dtype, flags);
+        if (obj == NULL) {
+            goto fail;
+        }
         if (obj != self) {
             copied = 1;
         }

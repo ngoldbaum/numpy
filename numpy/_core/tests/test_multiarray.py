@@ -6209,6 +6209,21 @@ class TestFlat:
         assert_(testpassed)
         assert_(b.flat[4] == 12.0)
 
+    def test_unaligned_values(self):
+        # the value array is used as-is, so its (mis)alignment must be
+        # honored when assigning through the flat iterator
+        n = 8
+        buf = np.zeros(n * 8 + 1, dtype=np.uint8)
+        unaligned = buf[1:].view(np.float64)
+        assert not unaligned.flags.aligned
+        unaligned[:] = np.arange(n)
+
+        b = np.zeros(n)
+        b.flat = unaligned
+        assert_array_equal(b, unaligned)
+        b.flat[::2] = unaligned[:n // 2]
+        assert_array_equal(b[::2], unaligned[:n // 2])
+
     def test_assignment_structured_with_objects(self):
         # whole elements must be copied, not just the leading object field
         dt = np.dtype([('x', 'O'), ('y', 'i8')])
