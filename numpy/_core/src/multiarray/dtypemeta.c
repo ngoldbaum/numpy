@@ -416,6 +416,7 @@ dtypemeta_initialize_struct_from_spec(
         descr->type_num = typenum;
         legacy_proto->type_num = typenum;
         DType->type_num = typenum;
+        Py_INCREF(descr);
         DType->singleton = (PyArray_Descr *)descr;
     }
     else {
@@ -1233,6 +1234,7 @@ dtypemeta_wrap_legacy_descriptor(
      * Fill DTypeMeta information that varies between DTypes, any variable
      * type information would need to be set before PyType_Ready().
      */
+    Py_INCREF(descr);
     dtype_class->singleton = (PyArray_Descr *)descr;
     Py_INCREF(descr->typeobj);
     dtype_class->scalar_type = descr->typeobj;
@@ -1314,9 +1316,6 @@ dtypemeta_wrap_legacy_descriptor(
         goto fail;
     }
 
-    /* Finally, replace the current class of the descr */
-    Py_SET_TYPE(descr, (PyTypeObject *)dtype_class);
-
     /* And it to the types submodule if it is a builtin dtype */
     if (!PyTypeNum_ISUSERDEF(descr->type_num)) {
         if (npy_cache_import_runtime("numpy.dtypes", "_add_dtype_helper",
@@ -1332,12 +1331,21 @@ dtypemeta_wrap_legacy_descriptor(
     }
     else {
         // ensure the within dtype cast is populated for legacy user dtypes
-        if (PyArray_GetCastingImpl(dtype_class, dtype_class) == NULL) {
+        PyObject *castingimpl = PyArray_GetCastingImpl(dtype_class, dtype_class);
+        if (castingimpl == NULL) {
             goto fail;
         }
+        Py_DECREF(castingimpl);
     }
 
-    return dtype_class;
+    /* Finally, replace the current class of the descr. */
+    PyTypeObject *old_type = Py_TYPE(descr);
+    /* descr->ob_type steals the local reference to dtype_class we created earlier */
+    Py_SET_TYPE(descr, (PyTypeObject *)dtype_class);
+    if (old_type->tp_flags & Py_TPFLAGS_HEAPTYPE) {
+        Py_DECREF(old_type);
+    }
+    return NPY_DTYPE(descr);
   fail:
     Py_DECREF(dtype_class);
     return NULL;
