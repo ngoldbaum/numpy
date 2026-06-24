@@ -757,6 +757,9 @@ _T_contra = TypeVar("_T_contra", contravariant=True)
 _RealT_co = TypeVar("_RealT_co", covariant=True)
 _ImagT_co = TypeVar("_ImagT_co", covariant=True)
 
+_NonObjectScalarT = TypeVar(
+    "_NonObjectScalarT", bound=np.bool | number | flexible | datetime64 | timedelta64,
+)
 _DTypeT = TypeVar("_DTypeT", bound=dtype)
 _DTypeT_co = TypeVar("_DTypeT_co", bound=dtype, default=dtype, covariant=True)
 _FlexDTypeT = TypeVar("_FlexDTypeT", bound=dtype[flexible])
@@ -1674,7 +1677,13 @@ class flatiter(Generic[_ArrayT_co]):
     # iteration
     def __len__(self, /) -> int: ...
     def __iter__(self, /) -> Self: ...
-    def __next__(self: flatiter[NDArray[_ScalarT]], /) -> _ScalarT: ...
+    # We need to be careful not to yield fictional object_ values.
+    @overload
+    def __next__(self: flatiter[NDArray[object_]], /) -> Any: ...
+    @overload  # generic includes object_, so use a narrower bound.
+    def __next__(self: flatiter[NDArray[_NonObjectScalarT]], /) -> _NonObjectScalarT: ...
+    @overload  # StringDType has no scalar type.
+    def __next__(self: flatiter[ndarray[Any, dtypes.StringDType]], /) -> str: ...
 
     # indexing
     @overload  # nd: _[()]

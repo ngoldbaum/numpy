@@ -15,6 +15,8 @@ AR_i8: npt.NDArray[np.int64]
 AR_u1: npt.NDArray[np.uint8]
 AR_m: npt.NDArray[np.timedelta64]
 AR_M: npt.NDArray[np.datetime64]
+AR_O_nd: npt.NDArray[np.object_]
+AR_T: np.ndarray[tuple[Any, ...], np.dtypes.StringDType]
 
 AR_LIKE_f: list[float]
 AR_LIKE_i: list[int]
@@ -195,3 +197,7 @@ assert_type(np.nested_iters([AR_i8, AR_i8], [[0], [1]], flags=["c_index"]), tupl
 assert_type(np.nested_iters([AR_i8, AR_i8], [[0], [1]], op_flags=[["readonly", "readonly"]]), tuple[np.nditer, ...])
 assert_type(np.nested_iters([AR_i8, AR_i8], [[0], [1]], op_dtypes=np.int_), tuple[np.nditer, ...])
 assert_type(np.nested_iters([AR_i8, AR_i8], [[0], [1]], order="C", casting="no"), tuple[np.nditer, ...])
+
+assert_type(next(iter(AR_u1.flat)), np.uint8)
+assert_type(next(iter(AR_O_nd.flat)), Any)
+assert_type(next(iter(AR_T.flat)), str)
