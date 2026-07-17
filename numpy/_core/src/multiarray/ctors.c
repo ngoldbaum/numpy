@@ -4051,11 +4051,7 @@ PyArray_FromIter(PyObject *obj, PyArray_Descr *dtype, npy_intp count)
 
     elsize = dtype->elsize;
 
-    /*
-     * Note that PyArray_DESCR(ret) may not match dtype.  There are exactly
-     * two cases where this can happen: empty strings/bytes/void (rejected
-     * above) and subarray dtypes (supported by sticking with `dtype`).
-     */
+
     Py_INCREF(dtype);
     ret = (PyArrayObject *)PyArray_NewFromDescr(&PyArray_Type, dtype, 1,
                                                 &elcount, NULL,NULL, 0, NULL);
@@ -4067,6 +4063,12 @@ PyArray_FromIter(PyObject *obj, PyArray_Descr *dtype, npy_intp count)
     PyArray_Dims new_dims = {dims, PyArray_NDIM(ret)};
 
     char *item = PyArray_BYTES(ret);
+
+    /*
+     * Note that PyArray_DESCR(ret) may not match dtype.
+     */
+    PyArray_Descr *pack_descr = PyDataType_HASSUBARRAY(dtype) ? dtype : PyArray_DESCR(ret);
+
     for (i = 0; i < count || count == -1; i++, item += elsize) {
         PyObject *value = PyIter_Next(iter);
         if (value == NULL) {
@@ -4095,7 +4097,7 @@ PyArray_FromIter(PyObject *obj, PyArray_Descr *dtype, npy_intp count)
             item = ((char *)PyArray_DATA(ret)) + i * elsize;
         }
 
-        if (PyArray_Pack(dtype, item, value) < 0) {
+        if (PyArray_Pack(pack_descr, item, value) < 0) {
             Py_DECREF(value);
             goto fail;
         }
