@@ -540,7 +540,26 @@ PyArray_Byteswap(PyArrayObject *self, npy_bool inplace)
     if (inplace && PyArray_FailUnlessWriteable(self, "array to be byte-swapped") < 0) {
         return NULL;
     }
-    if (copyswapn == NULL && check_missing_copyswap(PyArray_DESCR(self), 1) < 0) {
+    if (copyswapn == NULL) {
+        /*
+         * If the descriptor's byteorder is '|', byte order does not apply to
+         * the dtype and byteswapping is a no-op. Otherwise the dtype declared
+         * byte-order-sensitive storage and numpy cannot know how to swap its
+         * bytes.
+         *
+         * TODO: add a way for new-style dtypes to ask to be byteswapped,
+         * perhaps by casting to the opposite byteorder?
+         */
+        if (PyArray_DESCR(self)->byteorder == NPY_IGNORE) {
+            if (inplace) {
+                Py_INCREF(self);
+                return (PyObject *)self;
+            }
+            return PyArray_NewCopy(self, NPY_ANYORDER);
+        }
+        PyErr_Format(PyExc_TypeError,
+                "dtype %S does not support byteswapping",
+                (PyObject *)PyArray_DESCR(self));
         return NULL;
     }
     if (inplace) {

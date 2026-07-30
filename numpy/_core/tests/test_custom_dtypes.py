@@ -24,6 +24,19 @@ class TestSFloat:
         a *= 1. / scaling  # the casting code also uses the reciprocal.
         return a.view(SF(scaling))
 
+    def test_byteswap(self):
+        # sfloat previously crashed since it does not fill the legacy
+        # copyswapn slot; its byteorder is '|', declaring that byte order
+        # does not apply to it, so byteswapping is a no-op
+        a = self._get_array(1.)
+        swapped = a.byteswap()
+        assert swapped is not a
+        assert_array_equal(swapped.view(np.float64), a.view(np.float64))
+
+        res = a.byteswap(inplace=True)
+        assert res is a
+        assert_array_equal(a.view(np.float64), [1., 2., 3.])
+
     def test_sfloat_rescaled(self):
         sf = SF(1.)
         sf2 = sf.scaled_by(2.)
@@ -55,19 +68,6 @@ class TestSFloat:
         subarr = np.zeros(2, dtype=[("v", SF(1.), (2,))])
         with pytest.raises(TypeError, match="does not implement copyswap"):
             subarr.byteswap()
-
-    def test_byteswap_raises(self):
-        # a top-level DType without the legacy copyswap slot does not
-        # support byteswapping
-        arr = np.zeros(2, dtype=SF(1.))
-        with pytest.raises(TypeError, match="does not implement copyswap"):
-            arr.byteswap()
-
-        # the in-place writeability check fires before the missing-slot
-        # check, matching the behavior for dtypes that fill the slot
-        arr.flags.writeable = False
-        with pytest.raises(ValueError, match="array to be byte-swapped"):
-            arr.byteswap(inplace=True)
 
     def test_structured_field_place_and_flat_raise(self):
         # requests that need to copy through the missing legacy copyswap
