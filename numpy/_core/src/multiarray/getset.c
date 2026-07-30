@@ -872,6 +872,10 @@ array_flat_set(PyArrayObject *self, PyObject *val, void *NPY_UNUSED(ignored))
             PyArray_ITER_RESET(arrit);
         }
     }
+    if (PyErr_Occurred()) {
+        /* e.g. a structured dtype field that does not support copyswap */
+        goto exit;
+    }
     retval = 0;
 
  exit:
