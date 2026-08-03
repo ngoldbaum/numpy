@@ -2135,10 +2135,6 @@ gentype_byteswap(PyObject *self, PyObject *args, PyObject *kwds)
             Py_DECREF(descr);
             return PyErr_NoMemory();
         }
-        else if (copyswap == NULL) {
-            /* byte order does not apply, copy the bytes unchanged */
-            memcpy(newmem, data, descr->elsize);
-        }
         else {
             copyswap(newmem, data, 1, NULL);
         }
