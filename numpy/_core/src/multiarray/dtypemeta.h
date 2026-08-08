@@ -113,6 +113,9 @@ typedef struct {
 #define NPY_DT_is_parametric(dtype) (((dtype)->flags & NPY_DT_PARAMETRIC) != 0)
 #define NPY_DT_is_numeric(dtype) (((dtype)->flags & NPY_DT_NUMERIC) != 0)
 #define NPY_DT_is_user_defined(dtype) (((dtype)->type_num == -1))
+static inline int NPY_DT_has_finalize(PyArray_DTypeMeta *dtype) {
+    return NPY_DT_SLOTS(dtype)->finalize_descr != NULL;
+}
 
 /*
  * Macros for convenient classmethod calls, since these require

@@ -292,6 +292,21 @@ PyUFunc_ReduceWrapper(PyArrayMethod_Context *context,
         goto fail;
     }
 
+    /*
+     * The reduction loop uses [accumulator, input, output] descriptors.
+     * Both accumulator and output must use the iterator's realized output
+     * descriptor, including when finalize_descr replaced it during allocation.
+     * Keep op_dtypes in sync for the initial-value buffer as well.
+     * All references are borrowed from iter and must not outlive it.
+     */
+    PyArray_Descr **iter_descrs = NpyIter_GetDescrArray(iter);
+    PyArray_Descr *iter_context_descrs[3] = {
+            iter_descrs[0], iter_descrs[1], iter_descrs[0]};
+    PyArrayMethod_Context iter_context = *context;
+    op_dtypes[0] = iter_descrs[0];
+    iter_context.descriptors = iter_context_descrs;
+    context = &iter_context;
+
     npy_bool empty_iteration = NpyIter_GetIterSize(iter) == 0;
     result = NpyIter_GetOperandArray(iter)[0];
 
