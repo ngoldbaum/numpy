@@ -285,3 +285,36 @@ def test_oob_creation(sctype, create):
 
     assert create(sctype, iinfo.min) == iinfo.min
     assert create(sctype, iinfo.max) == iinfo.max
+
+
+@pytest.mark.parametrize("scalar, expected", [
+    (1, "float64"), (1., "float64"), (1j, "complex128"),
+    (np.float32(1), "float32"), (np.array(1, dtype="float32"), "float32"),
+])
+def test_ufunc_outer_preserves_24_numeric_promotion(scalar, expected):
+    # The string-scalar backport must not change numeric outer promotion.
+    arr = np.arange(6, dtype="float32").reshape(3, 2)
+    for result in (np.add.outer(scalar, arr), np.add.outer(arr, scalar)):
+        assert result.dtype == expected
+        assert_array_equal(result, np.add(np.asarray(scalar), arr))
+
+
+def test_ufunc_outer_preserves_24_huge_integer():
+    result = np.add.outer(2**100, 1)
+    assert type(result) is int
+    assert result == 2**100 + 1
+
+
+@pytest.mark.parametrize("scalar, expected", [(-1, 255), (300, 44)])
+def test_ufunc_at_preserves_24_integer_wrapping(scalar, expected):
+    arr = np.zeros(2, dtype="uint8")
+    np.add.at(arr, [0], scalar)
+    assert_array_equal(arr, [expected, 0])
+
+
+def test_ufunc_at_preserves_24_uint64_promotion():
+    # 2.4 promotes uint64 and a Python int to float64, even in `at`.
+    # Changing this precision is outside the string-scalar backport.
+    arr = np.array([2**63], dtype="uint64")
+    np.add.at(arr, [0], 1)
+    assert int(arr[0]) == 2**63

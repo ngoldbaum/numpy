@@ -650,6 +650,8 @@ convert_ufunc_arguments(PyUFuncObject *ufunc,
             if (out_op[i] == NULL) {
                 goto fail;
             }
+            /* Does not affect promotion, only conversion after resolution. */
+            npy_mark_tmp_array_if_pystr(obj, out_op[i]);
         }
         out_op_DTypes[i] = NPY_DTYPE(PyArray_DESCR(out_op[i]));
         Py_INCREF(out_op_DTypes[i]);
@@ -4139,8 +4141,13 @@ resolve_descriptors(int nop,
         /*
          * If we are working with Python literals/scalars, deal with them.
          * If needed, we create new array with the right descriptor.
+         * An exact Python str must be replaced from the original object to
+         * preserve trailing nulls, so it requires an available input tuple
+         * (only `ufunc.resolve_dtypes` has no input tuple).
          */
-        if ((PyArray_FLAGS(operands[i]) & NPY_ARRAY_WAS_PYTHON_LITERAL)) {
+        if ((PyArray_FLAGS(operands[i]) & NPY_ARRAY_WAS_PYTHON_LITERAL) ||
+                (inputs_tup != NULL &&
+                 (PyArray_FLAGS(operands[i]) & NPY_ARRAY_WAS_PYTHON_STR))) {
             PyObject *input;
             if (inputs_tup == NULL) {
                 input = NULL;
@@ -5485,39 +5492,66 @@ static PyObject *
 prepare_input_arguments_for_outer(PyObject *args, PyUFuncObject *ufunc)
 {
     PyArrayObject *ap1 = NULL;
-    PyObject *tmp;
-    npy_cache_import_runtime("numpy", "matrix",
-                             &npy_runtime_imports.numpy_matrix);
+
+    if (npy_cache_import_runtime("numpy", "matrix",
+                                 &npy_runtime_imports.numpy_matrix) == -1) {
+        return NULL;
+    }
 
     const char *matrix_deprecation_msg = (
             "%s.outer() was passed a numpy matrix as %s argument. "
             "Special handling of matrix is removed. Convert to a "
             "ndarray via 'matrix.A' ");
 
-    tmp = PyTuple_GET_ITEM(args, 0);
+    PyObject *tmp1 = PyTuple_GET_ITEM(args, 0);
+    PyObject *tmp2 = PyTuple_GET_ITEM(args, 1);
 
-    if (PyObject_IsInstance(tmp, npy_runtime_imports.numpy_matrix)) {
+    int is_matrix = PyObject_IsInstance(tmp1, npy_runtime_imports.numpy_matrix);
+    if (is_matrix == -1) {
+        return NULL;
+    }
+    else if (is_matrix) {
         PyErr_Format(PyExc_TypeError,
                 matrix_deprecation_msg, ufunc->name, "first");
         return NULL;
     }
-    else {
-        ap1 = (PyArrayObject *) PyArray_FROM_O(tmp);
-    }
-    if (ap1 == NULL) {
+
+    is_matrix = PyObject_IsInstance(tmp2, npy_runtime_imports.numpy_matrix);
+    if (is_matrix == -1) {
         return NULL;
     }
-
-    PyArrayObject *ap2 = NULL;
-    tmp = PyTuple_GET_ITEM(args, 1);
-    if (PyObject_IsInstance(tmp, npy_runtime_imports.numpy_matrix)) {
+    else if (is_matrix) {
         PyErr_Format(PyExc_TypeError,
                 matrix_deprecation_msg, ufunc->name, "second");
         return NULL;
     }
-    else {
-        ap2 = (PyArrayObject *) PyArray_FROM_O(tmp);
+    /*
+     * Preserve exact Python strings for conversion with the resolved dtype.
+     * A scalar contributes no dimensions, so no reshape is needed here.
+     * Convert the other operand to an array as in 2.4, so a numeric scalar
+     * stays strongly typed even when paired with a Python string.
+     */
+    if (PyUnicode_CheckExact(tmp1) || PyUnicode_CheckExact(tmp2)) {
+        PyObject *arg1 = PyUnicode_CheckExact(tmp1) ? Py_NewRef(tmp1) :
+                PyArray_FROM_O(tmp1);
+        if (arg1 == NULL) {
+            return NULL;
+        }
+        PyObject *arg2 = PyUnicode_CheckExact(tmp2) ? Py_NewRef(tmp2) :
+                PyArray_FROM_O(tmp2);
+        if (arg2 == NULL) {
+            Py_DECREF(arg1);
+            return NULL;
+        }
+        return Py_BuildValue("(NN)", arg1, arg2);
     }
+
+    ap1 = (PyArrayObject *) PyArray_FROM_O(tmp1);
+    if (ap1 == NULL) {
+        return NULL;
+    }
+
+    PyArrayObject *ap2 = (PyArrayObject *) PyArray_FROM_O(tmp2);
     if (ap2 == NULL) {
         Py_DECREF(ap1);
         return NULL;
@@ -6033,10 +6067,17 @@ ufunc_at(PyUFuncObject *ufunc, PyObject *args)
         Py_INCREF(operand_DTypes[0]);
         int force_legacy_promotion = 0;
 
+        npy_bool op2_is_pystr = NPY_FALSE;
         if (op2_array != NULL) {
+            /* Owned: `resolve_descriptors` may replace it for Python str */
             tmp_operands[1] = op2_array;
+            Py_INCREF(tmp_operands[1]);
             operand_DTypes[1] = NPY_DTYPE(PyArray_DESCR(op2_array));
             Py_INCREF(operand_DTypes[1]);
+            /* Keep numeric operands strongly typed, as in 2.4. */
+            if (npy_mark_tmp_array_if_pystr(op2, tmp_operands[1])) {
+                op2_is_pystr = NPY_TRUE;
+            }
             tmp_operands[2] = tmp_operands[0];
             operand_DTypes[2] = operand_DTypes[0];
             Py_INCREF(operand_DTypes[2]);
@@ -6054,20 +6095,30 @@ ufunc_at(PyUFuncObject *ufunc, PyObject *args)
             tmp_operands[2] = NULL;
         }
 
+        int resolve_result = -1;
+        PyObject *inputs_tup = NULL;
+        if (op2_is_pystr) {
+            inputs_tup = PyTuple_Pack(2, op1, op2);
+            if (inputs_tup == NULL) {
+                goto finish_resolution;
+            }
+        }
+
         ufuncimpl = promote_and_get_ufuncimpl(ufunc, tmp_operands, signature,
                         operand_DTypes, force_legacy_promotion,
                         NPY_FALSE, NPY_FALSE);
-        if (ufuncimpl == NULL) {
-            for (int i = 0; i < 3; i++) {
-                Py_XDECREF(signature[i]);
-                Py_XDECREF(operand_DTypes[i]);
-            }
-            goto fail;
+        if (ufuncimpl != NULL) {
+            /* Find the correct operation_descrs for the operation */
+            resolve_result = resolve_descriptors(nop, ufunc, ufuncimpl,
+                    tmp_operands, operation_descrs, signature, operand_DTypes,
+                    inputs_tup, NPY_UNSAFE_CASTING);
         }
 
-        /* Find the correct operation_descrs for the operation */
-        int resolve_result = resolve_descriptors(nop, ufunc, ufuncimpl,
-                tmp_operands, operation_descrs, signature, operand_DTypes, NULL, NPY_UNSAFE_CASTING);
+finish_resolution:
+        Py_XDECREF(inputs_tup);
+        if (op2_array != NULL) {
+            Py_SETREF(op2_array, tmp_operands[1]);
+        }
         for (int i = 0; i < 3; i++) {
             Py_XDECREF(signature[i]);
             Py_XDECREF(operand_DTypes[i]);
