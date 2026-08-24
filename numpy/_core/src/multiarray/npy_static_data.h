@@ -126,6 +126,12 @@ typedef struct npy_static_pydata_struct {
     PyObject *zero_pyint_like_arr;
 
     /*
+     * A NaN float. StringDType hashes every NaN-like na_object as this one
+     * object, matching the equality rule that treats all NaN floats alike.
+     */
+    PyObject *nan_na_hash_sentinel;
+
+    /*
      * References to items obtained via an import at module initialization
      */
     PyObject *AxisError;

@@ -2429,6 +2429,18 @@ def test_accumulation(string_array, tile):
         assert_array_equal(res, res_obj.astype(arr.dtype), strict=True)
 
 
+def test_nan_na_descriptors_hash_alike():
+    dts = [StringDType(na_object=na)
+           for na in (float("nan"), np.nan, np.float64("nan"))]
+    assert all(dt == dts[0] for dt in dts)
+    # equal objects must hash alike, or set and dict lookups miss them
+    assert len({hash(dt) for dt in dts}) == 1
+    assert len(set(dts)) == 1
+    # a pickle round trip creates a new NaN object
+    cache = {dts[0]: "found"}
+    assert cache[pickle.loads(pickle.dumps(dts[0]))] == "found"
+
+
 class TestImplementation:
     """Check that strings are stored in the arena when possible.
 

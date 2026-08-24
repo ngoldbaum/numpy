@@ -19,6 +19,7 @@
 #include "npy_import.h"
 #include "multiarraymodule.h"
 #include "npy_sort.h"
+#include "npy_static_data.h"
 
 /*
  * Internal helper to create new instances
@@ -1006,8 +1007,13 @@ PyArray_StringDType_hash(PyObject *self)
 {
     PyArray_StringDTypeObject *sself = (PyArray_StringDTypeObject *)self;
     PyObject *hash_tup = NULL;
-    if (sself->na_object != NULL) {
-        hash_tup = Py_BuildValue("(iO)", sself->coerce, sself->na_object);
+    PyObject *na_object = sself->na_object;
+    if (na_object != NULL) {
+        // na_eq_cmp treats every NaN float as the same sentinel
+        if (PyFloat_Check(na_object) && npy_isnan(PyFloat_AsDouble(na_object))) {
+            na_object = npy_static_pydata.nan_na_hash_sentinel;
+        }
+        hash_tup = Py_BuildValue("(iO)", sself->coerce, na_object);
     }
     else {
         hash_tup = Py_BuildValue("(i)", sself->coerce);

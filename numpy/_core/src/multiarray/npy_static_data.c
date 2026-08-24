@@ -229,6 +229,11 @@ initialize_static_globals(void)
         return -1;
     }
 
+    npy_static_pydata.nan_na_hash_sentinel = PyFloat_FromDouble(Py_NAN);
+    if (npy_static_pydata.nan_na_hash_sentinel == NULL) {
+        return -1;
+    }
+
     npy_static_pydata.dl_call_kwnames =
             PyTuple_Pack(3, npy_interned_str.dl_device,
                             npy_interned_str.copy,
