@@ -7,6 +7,7 @@ import pickle
 import string
 import sys
 import tempfile
+import warnings
 
 import pytest
 
@@ -2377,6 +2378,11 @@ def call_func(func, args, array, sanitize=True):
 
 @pytest.mark.parametrize("function_name, args", BINARY_FUNCTIONS)
 def test_binary(string_array, unicode_array, function_name, args):
+    if function_name == "encode":
+        # the StringDType default result dtype is transitioning to
+        # ByteStringDType behind a DeprecationWarning; this test covers the
+        # unchanged fixed-width path
+        warnings.simplefilter("ignore", DeprecationWarning)
     if function_name in ONLY_IN_NP_CHAR:
         func = getattr(np.char, function_name)
     else:
@@ -3347,3 +3353,178 @@ def test_nditer_distinct_allocators():
     it = np.nditer([a], flags=["refs_ok", "buffered"], op_dtypes=[b.dtype],
                    casting="unsafe")
     assert_array_equal([str(x) for x in it.copy()], a_obj.tolist())
+
+
+# ---------------------------------------------------------------------------
+# Shared coverage for the two variable-width string-like DTypes.
+#
+# The npy_static_string storage, allocator, and dtype machinery are
+# encoding-agnostic, so everything below must behave identically for
+# StringDType and ByteStringDType. Encoding-specific behavior is covered
+# by the StringDType tests above and by test_bytestringdtype.py.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(params=[np.dtypes.StringDType, np.dtypes.ByteStringDType],
+                ids=["StringDType", "ByteStringDType"])
+def any_vstring_class(request):
+    """Either variable-width string-like DType class"""
+    return request.param
+
+
+@pytest.fixture
+def native(any_vstring_class):
+    """Convert a str test value to the DType's native scalar type"""
+    if any_vstring_class is np.dtypes.ByteStringDType:
+        return lambda s: s.encode()
+    return lambda s: s
+
+
+@pytest.fixture
+def vstring_list(string_list, native):
+    """string_list in the DType's native scalar type, plus NUL-bearing and
+    arena-length values both DTypes store losslessly"""
+    extra = ["a\x00b", "a\x00c", "x\x00", "y" * 30 + "\x00"]
+    return [native(s) for s in string_list + extra]
+
+
+class TestVariableWidthShared:
+    def test_creation_and_roundtrip(self, any_vstring_class, vstring_list,
+                                    native):
+        dt = any_vstring_class()
+        arr = np.array(vstring_list, dtype=dt)
+        assert arr.tolist() == vstring_list
+        arr2 = np.empty(len(vstring_list), dtype=dt)
+        arr2[:] = vstring_list
+        assert arr2.tolist() == vstring_list
+        assert np.empty(3, dtype=dt).tolist() == [native("")] * 3
+
+    def test_dtype_equality_and_hash(self, any_vstring_class, native):
+        dt = any_vstring_class()
+        assert dt == any_vstring_class()
+        assert hash(dt) == hash(any_vstring_class())
+        for na in [native("na"), None, np.nan]:
+            dt_na = any_vstring_class(na_object=na)
+            assert dt_na != dt
+            assert dt_na == any_vstring_class(na_object=na)
+            assert hash(dt_na) == hash(any_vstring_class(na_object=na))
+
+    def test_pickle_roundtrip(self, any_vstring_class, vstring_list, native):
+        dt = any_vstring_class(na_object=native("N"))
+        arr = np.array(vstring_list, dtype=dt)
+        rt_dt, rt_arr = pickle.loads(pickle.dumps([dt, arr]))
+        assert rt_dt == dt
+        assert rt_arr.tolist() == arr.tolist()
+
+    def test_sort_and_argsort(self, any_vstring_class, vstring_list):
+        arr = np.array(vstring_list, dtype=any_vstring_class())
+        assert np.sort(arr).tolist() == sorted(vstring_list)
+        assert arr[np.argsort(arr, kind="stable")].tolist() == \
+            sorted(vstring_list)
+
+    def test_sort_descending(self, any_vstring_class, vstring_list, stable):
+        arr = np.array(vstring_list, dtype=any_vstring_class())
+        expected = sorted(vstring_list, reverse=True)
+        assert np.sort(arr, stable=stable, descending=True).tolist() == \
+            expected
+        argsorted = np.argsort(arr, stable=stable, descending=True)
+        assert arr[argsorted].tolist() == expected
+
+    def test_nan_na_sorts_last(self, any_vstring_class, vstring_list):
+        dt = any_vstring_class(na_object=np.nan)
+        arr = np.array([vstring_list[0], np.nan, vstring_list[1]], dtype=dt)
+        assert np.argsort(arr).tolist() == [0, 2, 1]
+        # nan-like nulls sort to the end in descending sorts too
+        assert np.argsort(arr, descending=True).tolist() == [2, 0, 1]
+
+    def test_unique(self, any_vstring_class, vstring_list):
+        arr = np.array(vstring_list * 2, dtype=any_vstring_class())
+        assert np.unique(arr).tolist() == sorted(set(vstring_list))
+
+    def test_searchsorted_arena_values(self, any_vstring_class, native):
+        # >15-byte values force the arena/allocator path
+        values = sorted(native(c) * 30 for c in string.ascii_lowercase)
+        arr = np.array(values, dtype=any_vstring_class())
+        for i in [0, 7, 25]:
+            needle = np.array([values[i]], dtype=any_vstring_class())
+            assert np.searchsorted(arr, needle)[0] == i
+
+    def test_nonzero_argmax_argmin(self, any_vstring_class, native):
+        arr = np.array([native(s) for s in ["b", "", "a", "c"]],
+                       dtype=any_vstring_class())
+        assert np.nonzero(arr)[0].tolist() == [0, 2, 3]
+        assert np.argmax(arr) == 3
+        assert np.argmin(arr) == 1
+
+    def test_self_cast_and_common_instance(self, any_vstring_class,
+                                           vstring_list, native):
+        dt = any_vstring_class()
+        dt_na = any_vstring_class(na_object=native("N"))
+        arr = np.array(vstring_list, dtype=dt)
+        assert arr.astype(dt_na).tolist() == vstring_list
+        a = np.array(vstring_list, dtype=dt_na)
+        cat = np.concatenate([a, a])
+        assert cat.dtype == dt_na
+        assert cat.tolist() == vstring_list * 2
+        with pytest.raises(TypeError):
+            np.concatenate(
+                [a, np.array(vstring_list,
+                             dtype=any_vstring_class(na_object=native("M")))])
+
+    def test_repr(self, any_vstring_class, native):
+        name = any_vstring_class.__name__
+        assert repr(any_vstring_class()) == f"{name}()"
+        na = native("N")
+        assert repr(any_vstring_class(na_object=na)) == \
+            f"{name}(na_object={na!r})"
+
+    def test_copy_take_and_assignment(self, any_vstring_class, native):
+        values = [native("x") * 40, native("y"), native("z") * 25]
+        arr = np.array(values, dtype=any_vstring_class())
+        assert arr.copy().tolist() == values
+        assert arr.take([2, 0]).tolist() == [values[2], values[0]]
+        # assignment into a distinct instance crosses allocators
+        out = np.empty(3, dtype=any_vstring_class())
+        out[...] = arr
+        assert out.tolist() == values
+
+    def test_byteswap_no_op(self, any_vstring_class, vstring_list):
+        arr = np.array(vstring_list, dtype=any_vstring_class())
+        assert arr.byteswap().tolist() == vstring_list
+
+    def test_slice_extreme_step(self, any_vstring_class, native):
+        arr = np.array([native("abcd")], dtype=any_vstring_class())
+        imax, imin = np.iinfo(np.intp).max, np.iinfo(np.intp).min
+        for start, step, expected in [(None, imax, "a"), (1, imax, "b"),
+                                      (None, -imax, "d"), (2, -imax, "c"),
+                                      (None, imin, "d")]:
+            assert np.strings.slice(arr, start, None, step).tolist() == \
+                [native(expected)]
+
+    def test_slice_zero_step_raises(self, any_vstring_class, native):
+        from numpy._core.umath import _slice
+        arr = np.array([native("abcd")], dtype=any_vstring_class())
+        with pytest.raises(ValueError, match="slice step cannot be zero"):
+            _slice(arr, 0, 4, 0)
+
+    def test_multiply_nonpositive_factor_or_empty(self, any_vstring_class,
+                                                  native):
+        dt = any_vstring_class()
+        arr = np.array([native("ab"), native("")], dtype=dt)
+        for factor in (0, -1, -100):
+            assert (arr * factor).tolist() == [native("")] * 2
+        empty = np.array([native("")], dtype=dt)
+        assert (empty * np.uint64(2**63)).tolist() == [native("")]
+        with pytest.raises(OverflowError):
+            arr * np.uint64(2**63)
+
+    @pytest.mark.parametrize("count", [-1, -2, -2**63])
+    def test_replace_negative_count_replaces_all(self, any_vstring_class,
+                                                 native, count):
+        arr = np.array([native("aaa")], dtype=any_vstring_class())
+        res = np.strings.replace(arr, native("a"), native("X"), count)
+        assert res.tolist() == [native("XXX")]
+
+
+def test_variable_width_classes_are_distinct():
+    assert np.dtypes.StringDType() != np.dtypes.ByteStringDType()

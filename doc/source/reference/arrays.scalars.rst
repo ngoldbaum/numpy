@@ -45,7 +45,7 @@ of the flexible itemsize array types (:class:`str_`,
    links to the classes and is a vector graphic. Unfortunately it looks worse
    and the html <map> element providing the linked regions is misaligned.
 
-   .. inheritance-diagram:: byte short intc int_ longlong ubyte ushort uintc uint ulonglong half single double longdouble csingle cdouble clongdouble bool_ datetime64 timedelta64 object_ bytes_ str_ void
+   .. inheritance-diagram:: byte short intc int_ longlong ubyte ushort uintc uint ulonglong half single double longdouble csingle cdouble clongdouble bool_ datetime64 timedelta64 object_ bytes_ str_ void vbytes
 
 .. [#] However, array scalars are immutable, so none of the array
        scalar attributes are settable.
@@ -72,6 +72,7 @@ Array scalar type     Related Python type          Inherits?
 :class:`double`       :class:`float`               yes
 :class:`cdouble`      :class:`complex`             yes
 :class:`bytes_`       :class:`bytes`               yes
+:class:`vbytes`       :class:`bytes`               yes
 :class:`str_`         :class:`str`                 yes
 :class:`bool_`        :class:`bool`                no
 :class:`datetime64`   :class:`datetime.datetime`   no
@@ -313,6 +314,10 @@ elements the data type consists of.)
    :exclude-members: __init__
 
 .. autoclass:: numpy.bytes_
+   :members: __init__
+   :exclude-members: __init__
+
+.. autoclass:: numpy.vbytes
    :members: __init__
    :exclude-members: __init__
 

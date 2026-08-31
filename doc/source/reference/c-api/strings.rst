@@ -9,6 +9,13 @@ This API allows access to the UTF-8 string data stored in NumPy StringDType
 arrays. See :ref:`NEP-55 <NEP55>` for
 more in-depth details into the design of StringDType.
 
+The same storage, allocator, and packed-string machinery backs the
+variable-width bytes DType, ``ByteStringDType``: its descriptors reuse the
+``PyArray_StringDTypeObject`` struct (with a vestigial ``coerce`` field fixed
+at the default), so every ``NpyString_*`` function below works on descriptors
+of either DType. The two DTypes are distinguished by their ``PyArray_DTypeMeta``,
+not by the descriptor struct.
+
 Examples
 --------
 
@@ -268,5 +275,6 @@ Functions
    Copy and pack the first ``size`` entries of the buffer pointed to by ``buf``
    into the ``packed_string``. Returns 0 on success and -1 on failure.
 
-   The ``buf`` pointer must store valid, complete UTF-8. The ``NpyString_pack``
-   function does not validate it.
+   When packing into a ``StringDType`` array, the ``buf`` pointer must store
+   valid, complete UTF-8. The ``NpyString_pack`` function does not validate
+   it. ``ByteStringDType`` arrays store arbitrary bytes.

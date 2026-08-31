@@ -5,6 +5,7 @@ operations.
 
 import functools
 import sys
+import warnings
 
 import numpy as np
 from numpy import (
@@ -21,6 +22,8 @@ from numpy._core.multiarray import _vec_string
 from numpy._core.overrides import array_function_dispatch, set_module
 from numpy._core.umath import (
     _center,
+    _decode,
+    _encode,
     _expandtabs,
     _expandtabs_length,
     _ljust,
@@ -96,6 +99,10 @@ array_function_dispatch = functools.partial(
     array_function_dispatch, module='numpy.strings')
 
 
+def _is_variable_width(dtype):
+    return isinstance(dtype, (np.dtypes.StringDType, np.dtypes.ByteStringDType))
+
+
 def _get_num_chars(a):
     """
     Helper function that returns the number of characters per field in
@@ -122,6 +129,29 @@ def _to_bytes_or_str_array(result, output_dtype_like):
     if isinstance(output_dtype_like.dtype, np.dtypes.StringDType):
         return ret.astype(type(output_dtype_like.dtype))
     return ret.astype(type(output_dtype_like.dtype)(_get_num_chars(ret)))
+
+
+def _check_not_bytestring(func_name, a):
+    if isinstance(a.dtype, np.dtypes.ByteStringDType):
+        raise NotImplementedError(
+            f"np.strings.{func_name} is not implemented for ByteStringDType "
+            "arrays")
+
+
+def _check_utf8_strict(func_name, encoding, errors):
+    if encoding is not None:
+        import codecs
+        # str() mirrors the fixed-width path, which passes the value into
+        # str.encode/bytes.decode and so accepts str-coercible objects
+        if codecs.lookup(str(encoding)).name != "utf-8":
+            raise NotImplementedError(
+                f"np.strings.{func_name} only supports the 'utf-8' encoding "
+                "for StringDType and ByteStringDType arrays, got "
+                f"{encoding!r}")
+    if errors is not None and str(errors) != "strict":
+        raise NotImplementedError(
+            f"np.strings.{func_name} only supports errors='strict' for "
+            f"StringDType and ByteStringDType arrays, got {errors!r}")
 
 
 def _clean_args(*args):
@@ -157,14 +187,14 @@ def multiply(a, i):
 
     Parameters
     ----------
-    a : array_like, with ``StringDType``, ``bytes_`` or ``str_`` dtype
+    a : array_like, with a string or bytes dtype
 
     i : array_like, with any integer dtype
 
     Returns
     -------
     out : ndarray
-        Output array of ``StringDType``, ``bytes_`` or ``str_`` dtype,
+        Output array of a string or bytes dtype,
         depending on input types
 
     Examples
@@ -195,7 +225,7 @@ def multiply(a, i):
     i = np.maximum(i, 0)
 
     # delegate to stringdtype loops that also do overflow checking
-    if a.dtype.char == "T":
+    if _is_variable_width(a.dtype):
         return a * i
 
     a_len = str_len(a)
@@ -261,7 +291,7 @@ def find(a, sub, start=0, end=None):
 
     Parameters
     ----------
-    a : array_like, with ``StringDType``, ``bytes_`` or ``str_`` dtype
+    a : array_like, with a string or bytes dtype
 
     sub : array_like, with ``bytes_`` or ``str_`` dtype
         The substring to search for.
@@ -409,9 +439,9 @@ def count(a, sub, start=0, end=None):
 
     Parameters
     ----------
-    a : array-like, with ``StringDType``, ``bytes_``, or ``str_`` dtype
+    a : array-like, with a string or bytes dtype
 
-    sub : array-like, with ``StringDType``, ``bytes_``, or ``str_`` dtype
+    sub : array-like, with a string or bytes dtype
        The substring to search for.
 
     start, end : array_like, with any integer dtype
@@ -575,15 +605,35 @@ def decode(a, encoding=None, errors=None):
     >>> np.strings.decode(c, encoding='cp037')
     array(['aAaAaA', '  aA  ', 'abBABba'], dtype='<U7')
 
+    For ByteStringDType input the result is a StringDType array and only
+    the utf-8 encoding with errors='strict' is supported; embedded and
+    trailing NUL bytes are preserved:
+
+    >>> r = np.array([b"x\x00"], dtype=np.dtypes.ByteStringDType())
+    >>> np.strings.decode(r, "utf-8")
+    array(['x\x00'], dtype=StringDType())
+
     """
+    a = np.asanyarray(a)
+    if isinstance(a.dtype, np.dtypes.ByteStringDType):
+        _check_utf8_strict("decode", encoding, errors)
+        return _decode(a)
+    if a.dtype.char == "T":
+        raise TypeError(
+            "decode() requires bytes input (a ByteStringDType or bytes "
+            "array); to turn text into bytes use np.strings.encode()")
     return _to_bytes_or_str_array(
         _vec_string(a, np.object_, 'decode', _clean_args(encoding, errors)),
         np.str_(''))
 
 
+def _encode_dispatcher(a, encoding=None, errors=None, *, dtype=None):
+    return (a,)
+
+
 @set_module("numpy.strings")
-@array_function_dispatch(_code_dispatcher)
-def encode(a, encoding=None, errors=None):
+@array_function_dispatch(_encode_dispatcher)
+def encode(a, encoding=None, errors=None, *, dtype=None):
     """
     Calls :meth:`str.encode` element-wise.
 
@@ -600,6 +650,17 @@ def encode(a, encoding=None, errors=None):
 
     errors : str, optional
        Specifies how to handle encoding errors
+
+    dtype : dtype, optional
+       The result dtype for ``StringDType`` input. Pass
+       ``np.dtypes.ByteStringDType()`` for a variable-width bytes result
+       that preserves trailing NUL bytes; only the utf-8 encoding with
+       errors='strict' is supported on that path. Pass ``np.bytes_`` for
+       the fixed-width ``S`` result. If unspecified, ``StringDType``
+       input returns the fixed-width result and a ``DeprecationWarning``
+       announces that the default will change to ``ByteStringDType`` in
+       a future release. For ``str_`` input only ``np.bytes_`` is
+       accepted and the result is unchanged.
 
     Returns
     -------
@@ -621,7 +682,48 @@ def encode(a, encoding=None, errors=None):
     array([b'\x81\xc1\x81\xc1\x81\xc1', b'@@\x81\xc1@@',
        b'\x81\x82\xc2\xc1\xc2\x82\x81'], dtype='|S7')
 
+    >>> s = np.array(["x\\x00"], dtype=np.dtypes.StringDType())
+    >>> np.strings.encode(s, "utf-8", dtype=np.dtypes.ByteStringDType())
+    array([b'x\\x00'], dtype=ByteStringDType())
+
     """
+    a = np.asanyarray(a)
+    if isinstance(a.dtype, np.dtypes.ByteStringDType):
+        raise TypeError(
+            "encode() requires text input (a StringDType or str array); "
+            "to turn bytes into text use np.strings.decode()")
+    if dtype is not None:
+        if dtype is np.dtypes.ByteStringDType:
+            dtype = np.dtypes.ByteStringDType()
+        elif dtype is np.dtypes.BytesDType:
+            dtype = np.dtype(np.bytes_)
+        else:
+            dtype = np.dtype(dtype)
+        if isinstance(dtype, np.dtypes.ByteStringDType):
+            if a.dtype.char != "T":
+                raise TypeError(
+                    "encode() only supports dtype=ByteStringDType() for "
+                    "StringDType input")
+            if dtype != np.dtypes.ByteStringDType():
+                raise ValueError(
+                    "encode() does not support a parametrized "
+                    "ByteStringDType; the result's na_object follows the "
+                    "input array")
+            _check_utf8_strict("encode", encoding, errors)
+            return _encode(a)
+        if dtype.kind != "S" or dtype.itemsize != 0:
+            raise ValueError(
+                "encode() dtype must be ByteStringDType or the fixed-width "
+                f"bytes dtype np.bytes_, got {dtype!r}")
+    elif a.dtype.char == "T":
+        warnings.warn(
+            "np.strings.encode returns a fixed-width bytes ('S') result "
+            "for StringDType input, which cannot represent trailing NUL "
+            "bytes; the default result dtype will change to "
+            "ByteStringDType in a future release. Pass "
+            "dtype=np.dtypes.ByteStringDType() to opt in now, or "
+            "dtype=np.bytes_ to keep the fixed-width result and silence "
+            "this warning.", DeprecationWarning, stacklevel=2)
     return _to_bytes_or_str_array(
         _vec_string(a, np.object_, 'encode', _clean_args(encoding, errors)),
         np.bytes_(b''))
@@ -745,6 +847,8 @@ def center(a, width, fillchar=' '):
         raise TypeError(
             "The fill character must be exactly one character long")
 
+    _check_not_bytestring("center", a)
+
     if np.result_type(a, fillchar).char == "T":
         return _center(a, width, fillchar)
 
@@ -809,6 +913,8 @@ def ljust(a, width, fillchar=' '):
     if np.any(str_len(fillchar) != 1):
         raise TypeError(
             "The fill character must be exactly one character long")
+
+    _check_not_bytestring("ljust", a)
 
     if np.result_type(a, fillchar).char == "T":
         return _ljust(a, width, fillchar)
@@ -875,6 +981,8 @@ def rjust(a, width, fillchar=' '):
         raise TypeError(
             "The fill character must be exactly one character long")
 
+    _check_not_bytestring("rjust", a)
+
     if np.result_type(a, fillchar).char == "T":
         return _rjust(a, width, fillchar)
 
@@ -929,6 +1037,8 @@ def zfill(a, width):
 
     a = np.asanyarray(a)
 
+    _check_not_bytestring("zfill", a)
+
     if a.dtype.char == "T":
         return _zfill(a, width)
 
@@ -947,7 +1057,7 @@ def lstrip(a, chars=None):
 
     Parameters
     ----------
-    a : array-like, with ``StringDType``, ``bytes_``, or ``str_`` dtype
+    a : array-like, with a string or bytes dtype
     chars : scalar with the same dtype as ``a``, optional
        The ``chars`` argument is a string specifying the set of
        characters to be removed. If ``None``, the ``chars``
@@ -958,7 +1068,7 @@ def lstrip(a, chars=None):
     Returns
     -------
     out : ndarray
-        Output array of ``StringDType``, ``bytes_`` or ``str_`` dtype,
+        Output array of a string or bytes dtype,
         depending on input types
 
     See Also
@@ -995,7 +1105,7 @@ def rstrip(a, chars=None):
 
     Parameters
     ----------
-    a : array-like, with ``StringDType``, ``bytes_``, or ``str_`` dtype
+    a : array-like, with a string or bytes dtype
     chars : scalar with the same dtype as ``a``, optional
        The ``chars`` argument is a string specifying the set of
        characters to be removed. If ``None``, the ``chars``
@@ -1006,7 +1116,7 @@ def rstrip(a, chars=None):
     Returns
     -------
     out : ndarray
-        Output array of ``StringDType``, ``bytes_`` or ``str_`` dtype,
+        Output array of a string or bytes dtype,
         depending on input types
 
     See Also
@@ -1038,7 +1148,7 @@ def strip(a, chars=None):
 
     Parameters
     ----------
-    a : array-like, with ``StringDType``, ``bytes_``, or ``str_`` dtype
+    a : array-like, with a string or bytes dtype
     chars : scalar with the same dtype as ``a``, optional
        The ``chars`` argument is a string specifying the set of
        characters to be removed. If ``None``, the ``chars``
@@ -1049,7 +1159,7 @@ def strip(a, chars=None):
     Returns
     -------
     out : ndarray
-        Output array of ``StringDType``, ``bytes_`` or ``str_`` dtype,
+        Output array of a string or bytes dtype,
         depending on input types
 
     See Also
@@ -1306,7 +1416,7 @@ def replace(a, old, new, count=-1):
     Returns
     -------
     out : ndarray
-        Output array of ``StringDType``, ``bytes_`` or ``str_`` dtype,
+        Output array of a string or bytes dtype,
         depending on input types
 
     See Also
@@ -1335,11 +1445,11 @@ def replace(a, old, new, count=-1):
     new_dtype = getattr(new, 'dtype', None)
     new_arr = np.asanyarray(new)
 
-    if np.result_type(arr, old_arr, new_arr).char == "T":
-        # pass exact str objects so the ufunc converts them directly
-        a = a if type(a) is str else arr
-        old = old if type(old) is str else old_arr
-        new = new if type(new) is str else new_arr
+    if _is_variable_width(np.result_type(arr, old_arr, new_arr)):
+        # pass exact str/bytes objects so the ufunc converts them directly
+        a = a if type(a) in (str, bytes) else arr
+        old = old if type(old) in (str, bytes) else old_arr
+        new = new if type(new) in (str, bytes) else new_arr
         return _replace(a, old, new, count)
 
     a_dt = arr.dtype
@@ -1552,19 +1662,19 @@ def partition(a, sep):
 
     Parameters
     ----------
-    a : array-like, with ``StringDType``, ``bytes_``, or ``str_`` dtype
+    a : array-like, with a string or bytes dtype
         Input array
-    sep : array-like, with ``StringDType``, ``bytes_``, or ``str_`` dtype
+    sep : array-like, with a string or bytes dtype
         Separator to split each string element in ``a``.
 
     Returns
     -------
     out : 3-tuple:
-        - array with ``StringDType``, ``bytes_`` or ``str_`` dtype with the
+        - array with a string or bytes dtype with the
           part before the separator
-        - array with ``StringDType``, ``bytes_`` or ``str_`` dtype with the
+        - array with a string or bytes dtype with the
           separator
-        - array with ``StringDType``, ``bytes_`` or ``str_`` dtype with the
+        - array with a string or bytes dtype with the
           part after the separator
 
     See Also
@@ -1584,10 +1694,10 @@ def partition(a, sep):
     a_arr = np.asanyarray(a)
     sep_arr = np.asanyarray(sep)
 
-    if np.result_type(a_arr, sep_arr).char == "T":
-        # pass exact str objects so the ufunc converts them directly
-        a = a if type(a) is str else a_arr
-        sep = sep if type(sep) is str else sep_arr
+    if _is_variable_width(np.result_type(a_arr, sep_arr)):
+        # pass exact str/bytes objects so the ufunc converts them directly
+        a = a if type(a) in (str, bytes) else a_arr
+        sep = sep if type(sep) in (str, bytes) else sep_arr
         return _partition(a, sep)
 
     a = a_arr
@@ -1625,19 +1735,19 @@ def rpartition(a, sep):
 
     Parameters
     ----------
-    a : array-like, with ``StringDType``, ``bytes_``, or ``str_`` dtype
+    a : array-like, with a string or bytes dtype
         Input array
-    sep : array-like, with ``StringDType``, ``bytes_``, or ``str_`` dtype
+    sep : array-like, with a string or bytes dtype
         Separator to split each string element in ``a``.
 
     Returns
     -------
     out : 3-tuple:
-        - array with ``StringDType``, ``bytes_`` or ``str_`` dtype with the
+        - array with a string or bytes dtype with the
           part before the separator
-        - array with ``StringDType``, ``bytes_`` or ``str_`` dtype with the
+        - array with a string or bytes dtype with the
           separator
-        - array with ``StringDType``, ``bytes_`` or ``str_`` dtype with the
+        - array with a string or bytes dtype with the
           part after the separator
 
     See Also
@@ -1657,10 +1767,10 @@ def rpartition(a, sep):
     a_arr = np.asanyarray(a)
     sep_arr = np.asanyarray(sep)
 
-    if np.result_type(a_arr, sep_arr).char == "T":
-        # pass exact str objects so the ufunc converts them directly
-        a = a if type(a) is str else a_arr
-        sep = sep if type(sep) is str else sep_arr
+    if _is_variable_width(np.result_type(a_arr, sep_arr)):
+        # pass exact str/bytes objects so the ufunc converts them directly
+        a = a if type(a) in (str, bytes) else a_arr
+        sep = sep if type(sep) in (str, bytes) else sep_arr
         return _rpartition(a, sep)
 
     a = a_arr
@@ -1747,7 +1857,7 @@ def slice(a, start=None, stop=np._NoValue, step=None, /):
 
     Parameters
     ----------
-    a : array-like, with ``StringDType``, ``bytes_``, or ``str_`` dtype
+    a : array-like, with a string or bytes dtype
         Input array
 
     start : None, an integer or an array of integers
@@ -1762,7 +1872,7 @@ def slice(a, start=None, stop=np._NoValue, step=None, /):
     Returns
     -------
     out : ndarray
-        Output array of ``StringDType``, ``bytes_`` or ``str_`` dtype,
+        Output array of a string or bytes dtype,
         depending on input type
 
     Examples

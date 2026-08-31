@@ -59,6 +59,7 @@ from numpy import (
     ulonglong,
     unsignedinteger,
     ushort,
+    vbytes,
     void,
 )
 from numpy._typing import DTypeLike
@@ -103,6 +104,7 @@ __all__ = [
     "complex128",
     "clongdouble",
     "bytes_",
+    "vbytes",
     "str_",
     "void",
     "object_",
@@ -184,6 +186,7 @@ ScalarType: Final[
         type[timedelta64],
         type[object_],
         type[bytes_],
+        type[vbytes],
         type[str_],
         type[uint8],
         type[uint16],

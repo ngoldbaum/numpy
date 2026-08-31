@@ -936,6 +936,13 @@ def _read(fname, *, delimiter=',', comment='#', quote='"',
         raise TypeError("a dtype must be provided.")
     dtype = np.dtype(dtype)
 
+    if dtype.kind == "R" and converters is None:
+        raise TypeError(
+            "loadtxt reads text and ByteStringDType never assumes an "
+            "encoding; pass explicit converters (e.g. "
+            "converters=str.encode) or read text as StringDType and use "
+            "np.strings.encode")
+
     read_dtype_via_object_chunks = None
     if dtype.kind in 'SUM' and dtype in {
             np.dtype("S0"), np.dtype("U0"), np.dtype("M8"), np.dtype("m8")}:
@@ -2055,6 +2062,12 @@ def genfromtxt(fname, dtype=float, comments='#', delimiter=None,
                                deletechars=deletechars,
                                case_sensitive=case_sensitive,
                                replace_space=replace_space)
+            if dtype.kind == "R" and not user_converters:
+                raise TypeError(
+                    "genfromtxt reads text and ByteStringDType never "
+                    "assumes an encoding; pass explicit converters (e.g. "
+                    "converters={0: str.encode}) or read text as "
+                    "StringDType and use np.strings.encode")
         # Make sure the names is a list (for 2.5)
         if names is not None:
             names = list(names)

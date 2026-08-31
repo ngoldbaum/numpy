@@ -28,6 +28,7 @@ typedef struct npy_runtime_imports_struct {
     PyObject *array_ufunc_errmsg_formatter;
     PyObject *_clip;
     PyObject *_commastring;
+    PyObject *_convert_to_bytestringdtype_kwargs;
     PyObject *_convert_to_stringdtype_kwargs;
     PyObject *_default_array_repr;
     PyObject *_default_array_str;

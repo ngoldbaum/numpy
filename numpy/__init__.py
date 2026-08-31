@@ -433,6 +433,7 @@ else:
         unstack,
         ushort,
         var,
+        vbytes,
         vdot,
         vecdot,
         vecmat,

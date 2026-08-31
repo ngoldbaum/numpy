@@ -18,6 +18,7 @@
 #include "descriptor.h"
 #include "dtypemeta.h"
 #include "scalartypes.h"
+#include "stringdtype/dtype.h"
 
 #include "common.h"
 
@@ -474,6 +475,9 @@ PyArray_Scalar(void *data, PyArray_Descr *descr, PyObject *base)
     type_num = descr->type_num;
     if (type_num == NPY_BOOL) {
         PyArrayScalar_RETURN_BOOL_FROM_LONG(*(npy_bool*)data);
+    }
+    else if (type_num == NPY_VBYTES) {
+        return bytestring_getitem_scalar((PyArray_StringDTypeObject *)descr, (char **)data);
     }
     else if (PyDataType_FLAGCHK(descr, NPY_USE_GETITEM)) {
         return PyDataType_GetArrFuncs(descr)->getitem(data, base);
