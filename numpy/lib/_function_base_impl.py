@@ -2321,6 +2321,12 @@ class vectorize:
     the function with the first element of the input.  This can be avoided
     by specifying the `otypes` argument.
 
+    When vectorized inputs have `~numpy.dtypes.StringDType`, Python string
+    results and returned missing-value sentinels inherit the common dtype of
+    those inputs, including its missing-value and coercion settings. Other
+    results use their own inferred dtype. Explicit `otypes` override this
+    inference.
+
     Parameters
     ----------
     pyfunc : callable, optional
@@ -2492,8 +2498,10 @@ class vectorize:
             self._doc = doc
 
         if isinstance(otypes, str):
+            # Keep the legacy public np.typecodes registry unchanged by adding
+            # variable-width string codes only to this local validation.
             for char in otypes:
-                if char not in typecodes['All']:
+                if char not in typecodes['All'] + 'T':
                     raise ValueError(f"Invalid otype specified: {char}")
         elif iterable(otypes):
             otypes = [_get_vectorize_dtype(_nx.dtype(x)) for x in otypes]
@@ -2586,7 +2594,8 @@ class vectorize:
             # the subsequent call when the ufunc is evaluated.
             # Assumes that ufunc first evaluates the 0th elements in the input
             # arrays (the input values are not checked to ensure this)
-            args = [asarray(a) for a in args]
+            converter = _array_converter(*args)
+            args = converter.as_arrays(subok=False, pyscalars="convert")
             if builtins.any(arg.size == 0 for arg in args):
                 raise ValueError('cannot call `vectorize` on size 0 inputs '
                                  'unless `otypes` is set')
@@ -2615,8 +2624,12 @@ class vectorize:
                 nout = 1
                 outputs = (outputs,)
 
-            otypes = ''.join([asarray(outputs[_k]).dtype.char
-                              for _k in range(nout)])
+            otypes = []
+            for output in outputs:
+                dtype = converter.result_type_hint(output)
+                if dtype is None:
+                    dtype = asarray(output).dtype
+                otypes.append(_get_vectorize_dtype(dtype))
 
             # Performance note: profiling indicates that creating the ufunc is
             # not a significant cost compared with wrapping so it seems not
@@ -2653,7 +2666,8 @@ class vectorize:
                 'wrong number of positional arguments: '
                 f'expected {len(input_core_dims)!r}, got {len(args)!r}'
             )
-        args = tuple(asanyarray(arg) for arg in args)
+        converter = _array_converter(*args)
+        args = converter.as_arrays(pyscalars="convert")
 
         broadcast_shape, dim_sizes = _parse_input_dimensions(
             args, input_core_dims)
@@ -2684,6 +2698,9 @@ class vectorize:
                 for result, core_dims in zip(results, output_core_dims):
                     _update_dim_sizes(dim_sizes, result, core_dims)
 
+                if otypes is None:
+                    otypes = [converter.result_type_hint(result)
+                              for result in results]
                 outputs = _create_arrays(broadcast_shape, dim_sizes,
                                          output_core_dims, otypes, results)
 

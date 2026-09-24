@@ -1792,16 +1792,22 @@ class TestVectorize:
         assert_array_equal(vectorize(Foo.bar)(Foo(), np.arange(9)),
                            np.arange(9) ** 2)
 
-    def test_execution_order_ticket_1487(self):
+    @pytest.mark.parametrize("a,b", [
+        (np.arange(3), np.arange(0.1, 3)),
+        (np.array(["aa", "b"], dtype="T"), np.array(["aa", "b"])),
+    ])
+    def test_execution_order_ticket_1487(self, a, b):
         # Regression test for dependence on execution order: issue 1487
         f1 = vectorize(lambda x: x)
-        res1a = f1(np.arange(3))
-        res1b = f1(np.arange(0.1, 3))
+        res1a = f1(a)
+        res1b = f1(b)
         f2 = vectorize(lambda x: x)
-        res2b = f2(np.arange(0.1, 3))
-        res2a = f2(np.arange(3))
-        assert_equal(res1a, res2a)
-        assert_equal(res1b, res2b)
+        res2b = f2(b)
+        res2a = f2(a)
+        assert_array_equal(res1a, res2a, strict=True)
+        assert_array_equal(res1b, res2b, strict=True)
+        assert_array_equal(res1a, a, strict=True)
+        assert_array_equal(res1b, b, strict=True)
 
     def test_string_ticket_1892(self):
         # Test vectorization over strings: issue 1892.
@@ -1811,32 +1817,117 @@ class TestVectorize:
 
     def test_dtype_promotion_gh_29189(self):
         # dtype should not be silently promoted (int32 -> int64)
-        dtypes = [np.int16, np.int32, np.int64, np.float16, np.float32, np.float64]
+        dtypes = [np.int16, np.int32, np.int64, np.float16, np.float32,
+                  np.float64, np.dtypes.StringDType()]
 
         for dtype in dtypes:
             x = np.asarray([1, 2, 3], dtype=dtype)
             y = np.vectorize(lambda x: x + x)(x)
             assert x.dtype == y.dtype
+            assert_array_equal(y, x + x)
 
-    def test_cache(self):
+    @pytest.mark.parametrize("na_object,replacement", [
+        (None, None), (np.nan, float("nan")),
+    ])
+    @pytest.mark.parametrize("signature", [None, "()->(),()"])
+    def test_stringdtype_inference(self, na_object, replacement, signature):
+        # gh-27700: retain the descriptor even when the first result is missing.
+        dtype = np.dtypes.StringDType(na_object=na_object, coerce=False)
+        typed_dtype = np.dtypes.StringDType(na_object=na_object)
+        x = np.array([na_object, "a", "b\x00", "\u03b1" * 30], dtype=dtype)
+
+        def func(value):
+            # A newly created NaN is also missing, but an explicitly typed
+            # array containing a missing value retains its own dtype.
+            value = replacement if value is na_object else value
+            return value, np.asarray(value, dtype=typed_dtype)
+
+        result, typed_result = np.vectorize(func, signature=signature)(x)
+        assert_array_equal(result, x, strict=True)
+        assert_array_equal(typed_result, x.astype(typed_dtype), strict=True)
+
+    @pytest.mark.parametrize("signature", [None, "()->(),(),(),(),(),()"])
+    def test_stringdtype_mixed_outputs(self, signature):
+        values = ["longest", "a", "b\x00"]
+        x = np.array(values, dtype=np.dtypes.StringDType(na_object=np.nan))
+        dtype = np.dtypes.StringDType(na_object=None, coerce=False)
+        # Only plain strings inherit the input dtype. Typed results retain
+        # their own descriptors, including StringDType's parameters.
+        f = np.vectorize(
+            lambda x: (x, len(x), np.str_(x), x.encode(), np.asarray(x, dtype),
+                       np.float32(np.nan)),
+            signature=signature)
+        results = f(x)
+        expected = (
+            x,
+            np.array([len(x) for x in values]),
+            np.array(values, dtype="U"),
+            np.array([x.encode() for x in values], dtype="S"),
+            np.array(values, dtype=dtype),
+            np.full(len(values), np.nan, dtype=np.float32),
+        )
+        for result, desired in zip(results, expected):
+            assert_array_equal(result, desired, strict=True)
+
+    @pytest.mark.parametrize("signature", [None, "(),()->()"])
+    def test_stringdtype_input_promotion(self, signature):
+        left = np.array([["a"], ["b"]],
+                        dtype=np.dtypes.StringDType(coerce=False))
+        right = np.array(["x", "longer"],
+                         dtype=np.dtypes.StringDType(na_object=None))
+        result = np.vectorize(operator.add, signature=signature)(left, right)
+        assert result.dtype == np.dtypes.StringDType(
+            na_object=None, coerce=False)
+        assert_array_equal(result, left + right)
+
+    @pytest.mark.parametrize("signature", [None, "(),()->()"])
+    def test_stringdtype_incompatible_inputs(self, signature):
+        left = np.array(["a", "b"], dtype=np.dtypes.StringDType(na_object=None))
+        right = np.array(["x", "y"], dtype=np.dtypes.StringDType(na_object=np.nan))
+        with pytest.raises(TypeError, match="incompatible"):
+            np.vectorize(operator.add, signature=signature)(left, right)
+
+        # Numeric results and explicit otypes do not promote the input dtypes.
+        lengths = np.vectorize(lambda x, y: len(x) + len(y),
+                               signature=signature)(left, right)
+        assert lengths.dtype == np.dtype(np.intp)
+        assert_array_equal(lengths, [2, 2])
+        strings = np.vectorize(operator.add, otypes="T",
+                               signature=signature)(left, right)
+        assert strings.dtype == np.dtypes.StringDType()
+        assert_array_equal(strings, np.array(["ax", "by"], dtype="T"))
+
+    @pytest.mark.parametrize("dtype", [np.intp, "T"])
+    def test_cache(self, dtype):
         # Ensure that vectorized func called exactly once per argument.
         _calls = [0]
 
         @vectorize
         def f(x):
             _calls[0] += 1
-            return x ** 2
+            return x + x
 
         f.cache = True
-        x = np.arange(5)
-        assert_array_equal(f(x), x * x)
+        x = np.arange(5).astype(dtype)
+        assert_array_equal(f(x), x + x, strict=True)
         assert_equal(_calls[0], len(x))
 
-    def test_otypes(self):
-        f = np.vectorize(lambda x: x)
-        f.otypes = 'i'
-        x = np.arange(5)
-        assert_array_equal(f(x), x)
+    @pytest.mark.parametrize("otypes,dtype,values", [
+        ('i', np.intc, [0, 1, 2, 3, 4]),
+        ('T', np.dtypes.StringDType(), ['a', 'b\x00', '\u03b1' * 30]),
+        ([np.dtypes.StringDType()], np.dtypes.StringDType(),
+         ['a', 'b\x00', '\u03b1' * 30]),
+    ])
+    @pytest.mark.parametrize("set_otypes", [False, True])
+    def test_otypes(self, otypes, dtype, values, set_otypes):
+        f = np.vectorize(lambda x: x, otypes=None if set_otypes else otypes)
+        if set_otypes:
+            f.otypes = otypes
+        x = np.array(values, dtype=object)
+        result = f(x)
+        expected = np.array(values, dtype=dtype)
+        assert result.dtype == expected.dtype
+        assert_array_equal(result, expected)
 
     def test_otypes_object_28624(self):
         # with object otype, the vectorized function should return y
@@ -1897,6 +1988,13 @@ class TestVectorize:
         f = vectorize(addsubtract, signature='(),()->()')
         r = f([0, 3, 6, 9], [1, 3, 5, 7])
         assert_array_equal(r, [1, 6, 1, 2])
+
+    def test_signature_many_args(self):
+        # Unlike ufuncs, signature-based vectorize permits more than 64 inputs.
+        x = np.array(["a", "longer"], dtype="T")
+        signature = ",".join(["()"] * 65) + "->()"
+        f = vectorize(lambda *args: args[0], signature=signature)
+        assert_array_equal(f(*([x] * 65)), x, strict=True)
 
     def test_signature_mean_last(self):
         def mean(a):

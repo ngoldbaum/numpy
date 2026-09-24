@@ -57,6 +57,20 @@ class TestSFloat:
         dt, _ = discover_array_params([1., 2., 3.], dtype=SF)
         assert dt == SF(1.)
 
+    @pytest.mark.parametrize("signature", [None, "(),()->()"])
+    def test_vectorize_output_dtype(self, signature):
+        a = self._get_array(2.)
+        b = self._get_array(4.)
+        result = np.vectorize(lambda x, y: x + y, signature=signature)(a, b)
+        assert result.dtype == SF(4.)
+        assert_array_equal(result.astype(float), [2., 4., 6.])
+
+        # Returning a typed scalar overrides the input storage scale.
+        result = np.vectorize(lambda x, y: np.float32(x + y),
+                              signature=signature)(a, b)
+        assert_array_equal(result, np.array([2, 4, 6], dtype=np.float32),
+                           strict=True)
+
     def test_output_dtype_hint(self):
         a = self._get_array(2.)
         b = self._get_array(4.)
