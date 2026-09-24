@@ -71,6 +71,15 @@ class TestSFloat:
         assert_array_equal(result, np.array([2, 4, 6], dtype=np.float32),
                            strict=True)
 
+    def test_apply_along_axis_output_dtype(self):
+        a = self._get_array(2.)[:, None]
+        result = np.apply_along_axis(lambda row: row[0], 1, a)
+        assert result.dtype == a.dtype
+        assert_array_equal(result.astype(float), [1., 2., 3.])
+
+        result = np.apply_along_axis(lambda row: int(row[0]), 1, a)
+        assert_array_equal(result, np.array([1, 2, 3]), strict=True)
+
     def test_output_dtype_hint(self):
         a = self._get_array(2.)
         b = self._get_array(4.)

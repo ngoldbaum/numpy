@@ -134,10 +134,27 @@ class TestPutAlongAxis:
 
 
 class TestApplyAlongAxis:
-    def test_simple(self):
-        a = np.ones((20, 10), 'd')
+    @pytest.mark.parametrize("dtype", ["d", "T"])
+    def test_simple(self, dtype):
+        a = np.ones((20, 10), dtype)
         assert_array_equal(
-            apply_along_axis(len, 0, a), len(a) * np.ones(a.shape[1]))
+            apply_along_axis(len, 0, a), np.full(a.shape[1], len(a)),
+            strict=True)
+
+    @pytest.mark.parametrize("na_object", [None, np.nan])
+    def test_stringdtype_inference(self, na_object):
+        dtype = np.dtypes.StringDType(na_object=na_object, coerce=False)
+        a = np.array([["a"], ["longer"], [na_object]], dtype=dtype)
+        # Infer from both a string and a missing first result.
+        for values in (a, a[::-1]):
+            result = apply_along_axis(lambda row: row[0], 1, values)
+            assert_array_equal(result, values[:, 0], strict=True)
+
+        # Explicitly typed callback results keep their own dtype.
+        typed_dtype = np.dtypes.StringDType(na_object=na_object)
+        result = apply_along_axis(
+            lambda row: np.asarray(row[0], dtype=typed_dtype), 1, a)
+        assert_array_equal(result, a[:, 0].astype(typed_dtype), strict=True)
 
     def test_simple101(self):
         a = np.ones((10, 101), 'd')

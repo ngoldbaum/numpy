@@ -385,7 +385,8 @@ def apply_along_axis(func1d, axis, arr, *args, **kwargs):
         raise ValueError(
             'Cannot apply_along_axis when any iteration dimensions are 0'
         ) from None
-    res = asanyarray(func1d(inarr_view[ind0], *args, **kwargs))
+    res = func1d(inarr_view[ind0], *args, **kwargs)
+    res = asanyarray(res, dtype=conv.result_type_hint(res))
 
     # build a buffer for storing evaluations of func1d.
     # remove the requested axis, and add the new ones on the end.
