@@ -584,6 +584,23 @@ class TestSelect:
         m = np.isnan(d)
         assert_equal(select([m], [d]), [0, 0, 0, np.nan, 0, 0])
 
+    def test_stringdtype_context(self):
+        a = np.array(["a", "b", "c"],
+                     dtype=np.dtypes.StringDType(na_object=None))
+        b = np.array(["longer\x00", "d", "e"],
+                     dtype=np.dtypes.StringDType(na_object=None, coerce=False))
+        conditions = [[True, False, False], [False, True, False]]
+        expected = np.array(["a", "d", None], dtype=b.dtype)
+        for choices, conds in [([a, b], conditions),
+                               ([b, a], conditions[::-1])]:
+            result = select(conds, choices, default=None)
+            assert_array_equal(result, expected, strict=True)
+
+        incompatible = np.array(["x"],
+                                dtype=np.dtypes.StringDType(na_object=np.nan))
+        with pytest.raises(TypeError, match="incompatible"):
+            select(conditions, [a, incompatible], default=None)
+
     def test_non_bool_deprecation(self):
         choices = self.choices
         conditions = self.conditions[:]

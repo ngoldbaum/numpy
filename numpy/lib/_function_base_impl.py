@@ -883,16 +883,12 @@ def select(condlist, choicelist, default=0):
     if len(condlist) == 0:
         raise ValueError("select with an empty condition list is not possible")
 
-    # TODO: This preserves the Python int, float, complex manually to get the
-    #       right `result_type` with NEP 50.  Most likely we will grow a better
-    #       way to spell this (and this can be replaced).
-    choicelist = [
-        choice if type(choice) in (int, float, complex) else np.asarray(choice)
-        for choice in choicelist]
-    choicelist.append(default if type(default) in (int, float, complex)
-                      else np.asarray(default))
-
+    converter = _array_converter(*choicelist, default)
     try:
+        # Interpret untyped scalars (including missing sentinels) before
+        # promotion, retaining weak Python numbers when no DType claims them.
+        choicelist = converter.as_arrays(
+            subok=False, pyscalars="preserve", with_context=True)
         dtype = np.result_type(*choicelist)
     except TypeError as e:
         msg = f'Choicelist and default value do not have a common dtype: {e}'

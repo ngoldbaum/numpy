@@ -1302,12 +1302,49 @@ def test_nonzero(strings, na_object):
                        strings_with_na[strings_with_na.astype(bool)])
 
 
-def test_where(string_list, na_object):
-    dtype = get_dtype(na_object)
+def _select_from_condition(condition, x, y):
+    return np.select([condition], [x], default=y)
+
+
+@pytest.mark.parametrize("select", [np.where, _select_from_condition])
+def test_where(string_list, na_object, select):
+    dtype = get_dtype(na_object, coerce=False)
     a = np.array(string_list, dtype=dtype)
-    b = a[::-1]
-    res = np.where([True, False, True, False, True, False], a, b)
-    assert_array_equal(res, [a[0], b[1], a[2], b[3], a[4], b[5]])
+    condition = np.array([True, False, True, False, True, False])
+    choices = [a[::-1], "other\x00", ["other\x00"]]
+    if hasattr(dtype, "na_object"):
+        # Recognize a fresh NaN, not just the configured object's identity.
+        missing = float("nan") if isinstance(na_object, float) else na_object
+        choices.extend([missing, [missing]])
+    for b in choices:
+        expected = a.copy()
+        expected[~condition] = b[~condition] if isinstance(b, np.ndarray) else b
+        assert_array_equal(select(condition, a, b), expected, strict=True)
+        assert_array_equal(select(~condition, b, a), expected, strict=True)
+
+
+@pytest.mark.parametrize("select", [np.where, _select_from_condition])
+def test_selection_scalar_discovery(select):
+    dtype = StringDType(na_object=np.nan)
+    a = np.array(["a", "b"], dtype=dtype)
+    # Assignment would coerce 1.0, but discovery must decline it. Typed NaNs
+    # likewise retain their dtype instead of becoming missing string values.
+    for value in [1.0, np.float64(np.nan), np.array(np.nan)]:
+        with pytest.raises(TypeError):
+            select([True, False], a, value)
+
+    # Explicit object operands keep their meaning and normal promotion.
+    result = select([True, False], a, np.array(None, dtype=object))
+    assert_array_equal(result, np.array(["a", None], dtype=object), strict=True)
+    # Context must be available before converting mixed Python sequences:
+    # the configured bytes sentinel cannot be decoded as a Unicode string.
+    nullable = np.array(["a"], dtype=StringDType(na_object=b"\xff", coerce=False))
+    result = select([False, False], nullable, [b"\xff", "x\0"])
+    assert_array_equal(result, np.array([b"\xff", "x\0"], dtype=nullable.dtype),
+                       strict=True)
+    # An unconfigured NaN must not be treated as a missing string either.
+    with pytest.raises(TypeError):
+        select([True, False], a.astype("T"), float("nan"))
 
 
 def test_fancy_indexing(string_list):

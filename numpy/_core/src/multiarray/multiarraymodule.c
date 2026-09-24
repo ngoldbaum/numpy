@@ -3274,18 +3274,18 @@ PyArray_Where(PyObject *condition, PyObject *x, PyObject *y)
     NPY_cast_info y_cast_info = {.func = NULL};
     NPY_BEGIN_THREADS_DEF;
 
-    ax = (PyArrayObject*)PyArray_FROM_O(x);
-    if (ax == NULL) {
+    PyObject *operands = PyTuple_Pack(2, x, y);
+    if (operands == NULL) {
         goto fail;
     }
-    ay = (PyArrayObject*)PyArray_FROM_O(y);
-    if (ay == NULL) {
+    PyObject *converted = npy_convert_operands(operands, NPY_TRUE, NPY_FALSE);
+    Py_DECREF(operands);
+    if (converted == NULL) {
         goto fail;
     }
-    npy_mark_tmp_array_if_pyscalar(x, ax, NULL);
-    npy_mark_tmp_array_if_pyscalar(y, ay, NULL);
-    npy_mark_tmp_array_if_pystr(x, ax);
-    npy_mark_tmp_array_if_pystr(y, ay);
+    ax = (PyArrayObject *)Py_NewRef(PyTuple_GET_ITEM(converted, 0));
+    ay = (PyArrayObject *)Py_NewRef(PyTuple_GET_ITEM(converted, 1));
+    Py_DECREF(converted);
 
     npy_uint32 flags = NPY_ITER_EXTERNAL_LOOP | NPY_ITER_BUFFERED |
                         NPY_ITER_REFS_OK | NPY_ITER_ZEROSIZE_OK;
