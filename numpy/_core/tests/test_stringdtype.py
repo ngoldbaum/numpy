@@ -3435,6 +3435,17 @@ def test_concatenate_context(axis, missing):
                        np.array(["a", "x"], dtype=dtype), strict=True)
 
 
+def test_append_context():
+    for missing in [None, float("nan"), b"\xff"]:
+        dtype = StringDType(na_object=missing, coerce=False)
+        a = np.array(["a"], dtype=dtype)
+        assert_array_equal(np.append(a, missing),
+                           np.array(["a", missing], dtype=dtype), strict=True)
+        assert_array_equal(np.append(a, ["x\0", missing]),
+                           np.array(["a", "x\0", missing], dtype=dtype),
+                           strict=True)
+
+
 def test_concatenate_distinct_allocators():
     a, b, a_obj, b_obj = _make_distinct_arena_arrays(50)
     expected = np.concatenate([a_obj, b_obj])

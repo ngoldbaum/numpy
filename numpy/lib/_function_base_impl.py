@@ -5699,12 +5699,10 @@ def append(arr, values, axis=None):
     `float64` when appended with dtype `int64`
 
     """
-    arr = asanyarray(arr)
     if axis is None:
-        if arr.ndim != 1:
-            arr = arr.ravel()
-        values = ravel(values)
-        axis = arr.ndim - 1
+        conv = _array_converter(arr, values)
+        arrays = conv.as_arrays(pyscalars="convert", with_context=True)
+        return concatenate(arrays, axis=None)
     return concatenate((arr, values), axis=axis)
 
 
