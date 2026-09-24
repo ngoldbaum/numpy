@@ -666,13 +666,14 @@ PyArray_ConcatenateFlattenedArrays(int narrays, PyArrayObject **arrays,
  * @param ret output array to fill
  * @param dtype Forced output array dtype (cannot be combined with ret)
  * @param casting Casting mode used
+ * @param with_context Whether to enable contextual operand discovery
  */
 NPY_NO_EXPORT PyObject *
 PyArray_ConcatenateInto(PyObject *op,
         int axis, PyArrayObject *ret, PyArray_Descr *dtype,
-        NPY_CASTING casting)
+        NPY_CASTING casting, npy_bool with_context)
 {
-    int narrays;
+    int iarrays, narrays;
     PyArrayObject **arrays;
 
     if (!PySequence_Check(op)) {
@@ -691,41 +692,100 @@ PyArray_ConcatenateInto(PyObject *op,
     if (narrays_true < 0) {
         return NULL;
     }
-    if (narrays_true > NPY_MAX_INT) {
+    else if (narrays_true > NPY_MAX_INT) {
         PyErr_Format(PyExc_ValueError,
             "concatenate() only supports up to %d arrays but got %zd.",
             NPY_MAX_INT, narrays_true);
         return NULL;
     }
-    PyObject *operands = PySequence_Tuple(op);
-    if (operands == NULL) {
-        return NULL;
-    }
-    narrays = (int)PyTuple_GET_SIZE(operands);
-    /* Discovery of every operand precedes materialization. Explicit output
-     * descriptors keep the existing conversion policy.
-     */
-    PyObject *converted = npy_convert_operands(
-            operands, ret == NULL && dtype == NULL, NPY_FALSE);
-    if (converted == NULL) {
+
+    if (with_context && ret == NULL && dtype == NULL) {
+        /* Only Python calls opt in; public C API callers keep legacy discovery. */
+        PyObject *operands = PySequence_Tuple(op);
+        if (operands == NULL) {
+            return NULL;
+        }
+        Py_ssize_t n = PyTuple_GET_SIZE(operands);
+        if (n > NPY_MAX_INT) {
+            Py_DECREF(operands);
+            PyErr_Format(PyExc_ValueError,
+                    "concatenate() only supports up to %d arrays but got %zd.",
+                    NPY_MAX_INT, n);
+            return NULL;
+        }
+        narrays = (int)n;
+        PyObject *converted = npy_convert_operands(
+                operands, NPY_TRUE, NPY_FALSE);
+        if (converted == NULL) {
+            Py_DECREF(operands);
+            return NULL;
+        }
+        /* This private tuple owns the references, including scalar replacements
+         * made by the flattened concatenation path.
+         */
+        arrays = (PyArrayObject **)PySequence_Fast_ITEMS(converted);
+        if (axis == NPY_RAVEL_AXIS) {
+            ret = PyArray_ConcatenateFlattenedArrays(
+                    narrays, arrays, NPY_CORDER, operands, ret, dtype, casting);
+        }
+        else {
+            ret = PyArray_ConcatenateArrays(
+                    narrays, arrays, axis, ret, dtype, casting);
+        }
+        Py_DECREF(converted);
         Py_DECREF(operands);
+        return (PyObject *)ret;
+    }
+
+    /* Convert the input list into arrays */
+    narrays = (int)narrays_true;
+    arrays = PyMem_RawMalloc(narrays * sizeof(arrays[0]));
+    if (arrays == NULL) {
+        PyErr_NoMemory();
         return NULL;
     }
-    /* This private tuple owns the references, including scalar replacements
-     * made by the flattened concatenation path.
-     */
-    arrays = (PyArrayObject **)PySequence_Fast_ITEMS(converted);
+    for (iarrays = 0; iarrays < narrays; ++iarrays) {
+        PyObject *item = PySequence_GetItem(op, iarrays);
+        if (item == NULL) {
+            narrays = iarrays;
+            goto fail;
+        }
+        arrays[iarrays] = (PyArrayObject *)PyArray_FROM_O(item);
+        if (arrays[iarrays] == NULL) {
+            Py_DECREF(item);
+            narrays = iarrays;
+            goto fail;
+        }
+        npy_mark_tmp_array_if_pyscalar(item, arrays[iarrays], NULL);
+        npy_mark_tmp_array_if_pystr(item, arrays[iarrays]);
+        Py_DECREF(item);
+    }
+
     if (axis == NPY_RAVEL_AXIS) {
         ret = PyArray_ConcatenateFlattenedArrays(
-                narrays, arrays, NPY_CORDER, operands, ret, dtype, casting);
+                narrays, arrays, NPY_CORDER, op, ret, dtype,
+                casting);
     }
     else {
         ret = PyArray_ConcatenateArrays(
                 narrays, arrays, axis, ret, dtype, casting);
     }
-    Py_DECREF(converted);
-    Py_DECREF(operands);
+
+    for (iarrays = 0; iarrays < narrays; ++iarrays) {
+        Py_DECREF(arrays[iarrays]);
+    }
+    PyMem_RawFree(arrays);
+
     return (PyObject *)ret;
+
+fail:
+    /* 'narrays' was set to how far we got in the conversion */
+    for (iarrays = 0; iarrays < narrays; ++iarrays) {
+        Py_DECREF(arrays[iarrays]);
+    }
+    PyMem_RawFree(arrays);
+
+    return NULL;
 }
 
 /*NUMPY_API
@@ -749,7 +809,7 @@ PyArray_Concatenate(PyObject *op, int axis)
         casting = NPY_SAME_KIND_CASTING;
     }
     return PyArray_ConcatenateInto(
-            op, axis, NULL, NULL, casting);
+            op, axis, NULL, NULL, casting, NPY_FALSE);
 }
 
 static int
@@ -2535,7 +2595,7 @@ array_concatenate(PyObject *NPY_UNUSED(dummy),
         }
     }
     res = PyArray_ConcatenateInto(a0, axis, (PyArrayObject *)out, dtype,
-            casting);
+            casting, NPY_TRUE);
     Py_XDECREF(dtype);
     return res;
 }
@@ -3223,11 +3283,9 @@ array_set_datetimeparse_function(PyObject *NPY_UNUSED(self),
     } while(0)
 
 
-/*NUMPY_API
- * Where
- */
-NPY_NO_EXPORT PyObject *
-PyArray_Where(PyObject *condition, PyObject *x, PyObject *y)
+static PyObject *
+array_where_impl(PyObject *condition, PyObject *x, PyObject *y,
+                 npy_bool with_context)
 {
     PyArrayObject *arr = NULL, *ax = NULL, *ay = NULL;
     PyObject *ret = NULL;
@@ -3254,18 +3312,34 @@ PyArray_Where(PyObject *condition, PyObject *x, PyObject *y)
     NPY_cast_info y_cast_info = {.func = NULL};
     NPY_BEGIN_THREADS_DEF;
 
-    PyObject *operands = PyTuple_Pack(2, x, y);
-    if (operands == NULL) {
-        goto fail;
+    if (with_context) {
+        PyObject *operands = PyTuple_Pack(2, x, y);
+        if (operands == NULL) {
+            goto fail;
+        }
+        PyObject *converted = npy_convert_operands(operands, NPY_TRUE, NPY_FALSE);
+        Py_DECREF(operands);
+        if (converted == NULL) {
+            goto fail;
+        }
+        ax = (PyArrayObject *)Py_NewRef(PyTuple_GET_ITEM(converted, 0));
+        ay = (PyArrayObject *)Py_NewRef(PyTuple_GET_ITEM(converted, 1));
+        Py_DECREF(converted);
     }
-    PyObject *converted = npy_convert_operands(operands, NPY_TRUE, NPY_FALSE);
-    Py_DECREF(operands);
-    if (converted == NULL) {
-        goto fail;
+    else {
+        ax = (PyArrayObject*)PyArray_FROM_O(x);
+        if (ax == NULL) {
+            goto fail;
+        }
+        ay = (PyArrayObject*)PyArray_FROM_O(y);
+        if (ay == NULL) {
+            goto fail;
+        }
+        npy_mark_tmp_array_if_pyscalar(x, ax, NULL);
+        npy_mark_tmp_array_if_pyscalar(y, ay, NULL);
+        npy_mark_tmp_array_if_pystr(x, ax);
+        npy_mark_tmp_array_if_pystr(y, ay);
     }
-    ax = (PyArrayObject *)Py_NewRef(PyTuple_GET_ITEM(converted, 0));
-    ay = (PyArrayObject *)Py_NewRef(PyTuple_GET_ITEM(converted, 1));
-    Py_DECREF(converted);
 
     npy_uint32 flags = NPY_ITER_EXTERNAL_LOOP | NPY_ITER_BUFFERED |
                         NPY_ITER_REFS_OK | NPY_ITER_ZEROSIZE_OK;
@@ -3460,6 +3534,15 @@ fail:
 
 #undef INNER_WHERE_LOOP
 
+/*NUMPY_API
+ * Where
+ */
+NPY_NO_EXPORT PyObject *
+PyArray_Where(PyObject *condition, PyObject *x, PyObject *y)
+{
+    return array_where_impl(condition, x, y, NPY_FALSE);
+}
+
 static PyObject *
 array_where(PyObject *NPY_UNUSED(ignored), PyObject *const *args, Py_ssize_t len_args)
 {
@@ -3473,7 +3556,7 @@ array_where(PyObject *NPY_UNUSED(ignored), PyObject *const *args, Py_ssize_t len
         return NULL;
     }
 
-    return PyArray_Where(obj, x, y);
+    return array_where_impl(obj, x, y, NPY_TRUE);
 }
 
 static PyObject *

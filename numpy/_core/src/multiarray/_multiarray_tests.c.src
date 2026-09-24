@@ -2276,7 +2276,32 @@ _npy_import_entry_point(PyObject *NPY_UNUSED(self), PyObject *obj) {
     return res;
 }
 
+static PyObject *
+where_c_api(PyObject *NPY_UNUSED(self), PyObject *args)
+{
+    PyObject *condition, *x, *y;
+    if (!PyArg_ParseTuple(args, "OOO", &condition, &x, &y)) {
+        return NULL;
+    }
+    return PyArray_Where(condition, x, y);
+}
+
+
+static PyObject *
+concatenate_c_api(PyObject *NPY_UNUSED(self), PyObject *args)
+{
+    PyObject *operands;
+    int axis;
+    if (!PyArg_ParseTuple(args, "OO&", &operands, PyArray_AxisConverter, &axis)) {
+        return NULL;
+    }
+    return PyArray_Concatenate(operands, axis);
+}
+
+
 static PyMethodDef Multiarray_TestsMethods[] = {
+    {"where_c_api", where_c_api, METH_VARARGS, NULL},
+    {"concatenate_c_api", concatenate_c_api, METH_VARARGS, NULL},
     {"argparse_example_function",
          (PyCFunction)argparse_example_function,
          METH_KEYWORDS | METH_FASTCALL, NULL},

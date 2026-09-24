@@ -696,3 +696,25 @@ def test_astype_copyflag():
     # _CopyMode enum isn't allowed
     assert_raises(ValueError, arr.astype, np.float64,
                   copy=np._CopyMode.NEVER)
+
+
+def test_contextual_discovery_does_not_change_c_api():
+    from numpy._core._multiarray_tests import concatenate_c_api, where_c_api
+
+    dtype = np.dtypes.StringDType(na_object=np.nan)
+    a = np.array(["a"], dtype=dtype)
+    # Python wrappers can interpret missing values using the other operand.
+    assert_array_equal(np.where([False], a, np.nan),
+                       np.array([np.nan], dtype=dtype), strict=True)
+    with pytest.raises(np.exceptions.DTypePromotionError):
+        where_c_api([False], a, np.nan)
+
+    # The C API still converts sequences independently, losing trailing NULs.
+    expected = np.array(["a", "x"], dtype=dtype)
+    for axis in [0, None]:
+        assert_array_equal(concatenate_c_api((a, ["x\0"]), axis), expected,
+                           strict=True)
+    assert_array_equal(where_c_api([False], a, ["x\0"]), expected[1:],
+                       strict=True)
+    assert_array_equal(np.concatenate((a, ["x\0"])),
+                       np.array(["a", "x\0"], dtype=dtype), strict=True)
