@@ -12185,6 +12185,43 @@ class TestArrayConverterDiscovery:
         assert value.calls == 1
 
 
+class TestStringPromotionDiscovery:
+    @pytest.mark.parametrize("inputs", [
+        ([b"a", "b"],), ([b"\xff", "b"],),
+        ([[b"a"], ["b"]],), ([b"a"], ["b"]),
+        ([np.array([b"a"]), np.array(["b"])],),
+        (["a", 1],),
+    ])
+    def test_mixed_inputs(self, inputs):
+        from numpy._core._multiarray_umath import _array_converter
+
+        conv = _array_converter(*inputs)
+        # Neither check may materialize Unicode arrays before detecting the
+        # mixture, even when a byte cannot be decoded as ASCII (gh-32765).
+        with pytest.raises(np.exceptions.DTypePromotionError,
+                           match="Strict string promotion"):
+            conv.result_type(strict_strings=True)
+        with pytest.raises(np.exceptions.DTypePromotionError,
+                           match="Strict string promotion"):
+            conv.as_arrays(strict_strings=True)
+
+    def test_defaults_and_typed_inputs(self):
+        from numpy._core._multiarray_umath import _array_converter
+
+        conv = _array_converter([b"a", "b"])
+        assert_array_equal(conv.as_arrays()[0], np.array(["a", "b"]), strict=True)
+        assert conv.result_type() == np.dtype("U1")
+        for array in [np.array([b"a", "b"], dtype=object),
+                      np.array([b"a", "b"], dtype="U"), np.array([1, 2.5])]:
+            conv = _array_converter(array)
+            assert conv.result_type(strict_strings=True) == array.dtype
+            assert conv.as_arrays(strict_strings=True)[0] is array
+        conv = _array_converter(np.array(1, dtype=np.int8), 2)
+        assert conv.result_type(strict_strings=True) == np.dtype("int8")
+        with pytest.raises(np.exceptions.DTypePromotionError):
+            conv.result_type(extra_dtype="U", strict_strings=True)
+
+
 class TestSubinterpreterTeardown:
     """
     ``_multiarray_umath`` declares Py_MOD_MULTIPLE_INTERPRETERS_NOT_SUPPORTED,

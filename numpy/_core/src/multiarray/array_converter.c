@@ -204,6 +204,20 @@ find_wrap(PyArrayArrayConverterObject *self)
 }
 
 
+static int
+check_string_promotion(unsigned int kinds)
+{
+    if ((kinds & (NPY_DISCOVERY_BYTES | NPY_DISCOVERY_TEXT)) &&
+            (kinds & (kinds - 1))) {
+        PyErr_SetString(_npy_module_state->static_pydata.DTypePromotionError,
+                "Strict string promotion does not allow mixing bytes, text, "
+                "or non-string DTypes. Convert the inputs explicitly.");
+        return -1;
+    }
+    return 0;
+}
+
+
 typedef enum {
     CONVERT = 0,
     PRESERVE = 1,
@@ -255,8 +269,17 @@ pyscalar_mode_conv(PyObject *obj, scalar_policy *policy)
 
 static PyObject *
 converter_as_arrays(PyArrayArrayConverterObject *self, npy_bool subok,
-        scalar_policy policy)
+        scalar_policy policy, npy_bool strict_strings)
 {
+    if (strict_strings) {
+        unsigned int kinds = 0;
+        for (int i = 0; i < self->narrs; i++) {
+            kinds |= self->items[i].discovery.kinds;
+        }
+        if (check_string_promotion(kinds) < 0) {
+            return NULL;
+        }
+    }
     if (policy == CONVERT_IF_NO_ARRAY) {
         policy = (self->flags & NPY_CH_ALL_PYSCALARS) ? CONVERT : PRESERVE;
     }
@@ -294,13 +317,15 @@ array_converter_as_arrays(PyArrayArrayConverterObject *self,
 {
     npy_bool subok = NPY_TRUE;
     scalar_policy policy = CONVERT_IF_NO_ARRAY;
+    npy_bool strict_strings = NPY_FALSE;
     NPY_PREPARE_ARGPARSER;
     if (npy_parse_arguments("as_arrays", args, len_args, kwnames,
             {"$subok", &PyArray_BoolConverter, &subok},
+            {"$strict_strings", &PyArray_BoolConverter, &strict_strings},
             {"$pyscalars", &pyscalar_mode_conv, &policy}) < 0) {
         return NULL;
     }
-    return converter_as_arrays(self, subok, policy);
+    return converter_as_arrays(self, subok, policy, strict_strings);
 }
 
 
@@ -345,10 +370,11 @@ array_converter_result_type(PyArrayArrayConverterObject *self,
     PyArray_Descr *result = NULL;
     npy_dtype_info dt_info = {NULL, NULL};
     npy_bool ensure_inexact = NPY_FALSE;
+    npy_bool strict_strings = NPY_FALSE;
 
     /* Allocate scratch space (could be optimized away) */
     void *DTypes_and_descrs = PyMem_Malloc(
-            ((self->narrs + 1) * 2) * sizeof(PyObject *));
+            (((size_t)self->narrs + 1) * 2) * sizeof(PyObject *));
     if (DTypes_and_descrs == NULL) {
         PyErr_NoMemory();
         return NULL;
@@ -359,7 +385,8 @@ array_converter_result_type(PyArrayArrayConverterObject *self,
     NPY_PREPARE_ARGPARSER;
     if (npy_parse_arguments("result_type", args, len_args, kwnames,
             {"|extra_dtype", &PyArray_DTypeOrDescrConverterOptional, &dt_info},
-            {"|ensure_inexact", &PyArray_BoolConverter, &ensure_inexact}) < 0) {
+            {"|ensure_inexact", &PyArray_BoolConverter, &ensure_inexact},
+            {"$strict_strings", &PyArray_BoolConverter, &strict_strings}) < 0) {
         goto finish;
     }
 
@@ -394,6 +421,19 @@ array_converter_result_type(PyArrayArrayConverterObject *self,
         ndescrs++;
     }
 
+    if (strict_strings) {
+        unsigned int kinds = 0;
+        for (int i = 0; i < self->narrs; i++) {
+            kinds |= self->items[i].discovery.kinds;
+        }
+        if (dt_info.dtype != NULL) {
+            /* An explicit extra dtype participates in the same check. */
+            kinds |= npy_discovery_kind_from_dtype(dt_info.dtype);
+        }
+        if (check_string_promotion(kinds) < 0) {
+            goto finish;
+        }
+    }
     PyArray_DTypeMeta *common_dtype = PyArray_PromoteDTypeSequence(
             nDTypes, DTypes);
     if (common_dtype == NULL) {

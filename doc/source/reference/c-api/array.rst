@@ -3848,6 +3848,13 @@ and array-protocol results, allowing conversion policies to be resolved across
 operands before materialization. The ordinary array constructor and deferred
 conversion use the same assignment machinery.
 
+Discovery also records the original bytes, text, and other dtype families
+before promotion. ``result_type(strict_strings=True)`` and
+``as_arrays(strict_strings=True)`` reject mixtures within or between operands;
+they do not inspect the contents of already typed arrays. Numeric-only
+promotion is unchanged. These private options do not change default array creation or
+concatenation policy.
+
 .. c:macro:: NPY_DT_get_constant
 
 .. c:type:: int (PyArrayDTypeMeta_GetConstant)( \
