@@ -3412,6 +3412,29 @@ def test_view_distinct_instance():
     assert_array_equal(res, a)
 
 
+@pytest.mark.parametrize("axis", [None, 0])
+@pytest.mark.parametrize("missing", [None, b"\xff"])
+def test_concatenate_context(axis, missing):
+    dtype = StringDType(na_object=missing, coerce=False)
+    a = np.array(["a"], dtype=dtype)
+    values = ["x\0", missing]
+    expected = np.array(["a", *values], dtype=dtype)
+    assert_array_equal(np.concatenate((a, values), axis=axis), expected,
+                       strict=True)
+    assert_array_equal(np.concatenate((values, a), axis=axis),
+                       np.array([*values, "a"], dtype=dtype), strict=True)
+    if axis is None:
+        assert_array_equal(np.concatenate((a, missing), axis=None),
+                           expected[[0, 2]], strict=True)
+    # Explicit output descriptors and typed inputs bypass contextual discovery.
+    for kwargs in [{"dtype": object}, {"out": np.empty(3, dtype=object)}]:
+        if missing is None:
+            assert_array_equal(np.concatenate((a, values), axis=axis, **kwargs),
+                               np.array(["a", *values], dtype=object), strict=True)
+    assert_array_equal(np.concatenate((a, np.array(["x\0"])), axis=axis),
+                       np.array(["a", "x"], dtype=dtype), strict=True)
+
+
 def test_concatenate_distinct_allocators():
     a, b, a_obj, b_obj = _make_distinct_arena_arrays(50)
     expected = np.concatenate([a_obj, b_obj])

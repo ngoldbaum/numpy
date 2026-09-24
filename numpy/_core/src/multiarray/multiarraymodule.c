@@ -672,7 +672,7 @@ PyArray_ConcatenateInto(PyObject *op,
         int axis, PyArrayObject *ret, PyArray_Descr *dtype,
         NPY_CASTING casting)
 {
-    int iarrays, narrays;
+    int narrays;
     PyArrayObject **arrays;
 
     if (!PySequence_Check(op)) {
@@ -687,65 +687,45 @@ PyArray_ConcatenateInto(PyObject *op,
         return NULL;
     }
 
-    /* Convert the input list into arrays */
     Py_ssize_t narrays_true = PySequence_Size(op);
     if (narrays_true < 0) {
         return NULL;
     }
-    else if (narrays_true > NPY_MAX_INT) {
+    if (narrays_true > NPY_MAX_INT) {
         PyErr_Format(PyExc_ValueError,
             "concatenate() only supports up to %d arrays but got %zd.",
             NPY_MAX_INT, narrays_true);
         return NULL;
     }
-    narrays = (int)narrays_true;
-    arrays = PyMem_RawMalloc(narrays * sizeof(arrays[0]));
-    if (arrays == NULL) {
-        PyErr_NoMemory();
+    PyObject *operands = PySequence_Tuple(op);
+    if (operands == NULL) {
         return NULL;
     }
-    for (iarrays = 0; iarrays < narrays; ++iarrays) {
-        PyObject *item = PySequence_GetItem(op, iarrays);
-        if (item == NULL) {
-            narrays = iarrays;
-            goto fail;
-        }
-        arrays[iarrays] = (PyArrayObject *)PyArray_FROM_O(item);
-        if (arrays[iarrays] == NULL) {
-            Py_DECREF(item);
-            narrays = iarrays;
-            goto fail;
-        }
-        npy_mark_tmp_array_if_pyscalar(item, arrays[iarrays], NULL);
-        npy_mark_tmp_array_if_pystr(item, arrays[iarrays]);
-        Py_DECREF(item);
+    narrays = (int)PyTuple_GET_SIZE(operands);
+    /* Discovery of every operand precedes materialization. Explicit output
+     * descriptors keep the existing conversion policy.
+     */
+    PyObject *converted = npy_convert_operands(
+            operands, ret == NULL && dtype == NULL, NPY_FALSE);
+    if (converted == NULL) {
+        Py_DECREF(operands);
+        return NULL;
     }
-
+    /* This private tuple owns the references, including scalar replacements
+     * made by the flattened concatenation path.
+     */
+    arrays = (PyArrayObject **)PySequence_Fast_ITEMS(converted);
     if (axis == NPY_RAVEL_AXIS) {
         ret = PyArray_ConcatenateFlattenedArrays(
-                narrays, arrays, NPY_CORDER, op, ret, dtype,
-                casting);
+                narrays, arrays, NPY_CORDER, operands, ret, dtype, casting);
     }
     else {
         ret = PyArray_ConcatenateArrays(
                 narrays, arrays, axis, ret, dtype, casting);
     }
-
-    for (iarrays = 0; iarrays < narrays; ++iarrays) {
-        Py_DECREF(arrays[iarrays]);
-    }
-    PyMem_RawFree(arrays);
-
+    Py_DECREF(converted);
+    Py_DECREF(operands);
     return (PyObject *)ret;
-
-fail:
-    /* 'narrays' was set to how far we got in the conversion */
-    for (iarrays = 0; iarrays < narrays; ++iarrays) {
-        Py_DECREF(arrays[iarrays]);
-    }
-    PyMem_RawFree(arrays);
-
-    return NULL;
 }
 
 /*NUMPY_API
