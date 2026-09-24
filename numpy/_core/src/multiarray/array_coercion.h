@@ -15,6 +15,39 @@ typedef struct coercion_cache_obj {
     int depth;  /* the dimension at which this object was found. */
 } coercion_cache_obj;
 
+typedef enum {
+    NPY_DISCOVERY_BYTES = 1,
+    NPY_DISCOVERY_TEXT = 2,
+    NPY_DISCOVERY_OTHER = 4,
+} npy_discovery_kind;
+
+/* Opt-in provenance for callers which defer array materialization. */
+typedef struct {
+    unsigned int kinds;
+    PyObject *scalars;  /* owned list of scalar leaves, in discovery order */
+    npy_bool has_array;
+} npy_discovery_info;
+
+NPY_NO_EXPORT unsigned int
+npy_discovery_kind_from_dtype(PyArray_DTypeMeta *dtype);
+
+static inline unsigned int
+npy_discovery_kind_from_descr(PyArray_Descr *descr)
+{
+    return npy_discovery_kind_from_dtype(NPY_DTYPE(descr));
+}
+
+NPY_NO_EXPORT int
+PyArray_DiscoverDTypeAndShapeWithInfo(
+        PyObject *obj, int max_dims, npy_intp out_shape[NPY_MAXDIMS],
+        coercion_cache_obj **coercion_cache,
+        PyArray_DTypeMeta *fixed_DType, PyArray_Descr *requested_descr,
+        PyArray_Descr **out_descr, int copy, int *was_copied_by__array__,
+        npy_discovery_info *info);
+
+NPY_NO_EXPORT coercion_cache_obj *
+npy_clone_coercion_cache(coercion_cache_obj *cache);
+
 NPY_NO_EXPORT int
 _PyArray_MapPyTypeToDType(
         PyArray_DTypeMeta *DType, PyTypeObject *pytype, npy_bool userdef);

@@ -12140,6 +12140,51 @@ class TestPatternMatching:
                 raise AssertionError("3D ndarray did not match sequence pattern")
 
 
+class TestArrayConverterDiscovery:
+    def test_cached_sequence(self):
+        from collections import UserList
+
+        from numpy._core._multiarray_umath import _array_converter
+
+        values = UserList([["x\0"], ["longer"]])
+        conv = _array_converter(values)
+        values[0][:] = ["changed", "shape"]
+        expected = np.array([["x"], ["longer"]])
+        assert_array_equal(conv.as_arrays()[0], expected, strict=True)
+        assert_array_equal(conv[0], expected, strict=True)
+
+    def test_cache_cycle(self):
+        from numpy._core._multiarray_umath import _array_converter
+
+        class ArrayLike:
+            def __array__(self, dtype=None, copy=None):
+                return np.zeros(1, dtype=dtype)
+
+        value = ArrayLike()
+        converter = _array_converter([value])
+        value.converter = converter
+        ref = weakref.ref(value)
+        del converter, value
+        gc.collect()
+        assert ref() is None
+
+    def test_cached_array_protocol(self):
+        from numpy._core._multiarray_umath import _array_converter
+
+        class ArrayLike:
+            calls = 0
+
+            def __array__(self, dtype=None, copy=None):
+                self.calls += 1
+                return np.array([1, 2], dtype=dtype)
+
+        value = ArrayLike()
+        conv = _array_converter([value])
+        for _ in range(2):
+            assert_array_equal(conv.as_arrays()[0], [[1, 2]])
+        assert value.calls == 1
+
+
 class TestSubinterpreterTeardown:
     """
     ``_multiarray_umath`` declares Py_MOD_MULTIPLE_INTERPRETERS_NOT_SUPPORTED,

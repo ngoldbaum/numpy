@@ -3,6 +3,7 @@
 
 
 #include "numpy/ndarraytypes.h"
+#include "array_coercion.h"
 
 NPY_NO_EXPORT int
 init_array_converter_type(PyObject *module);
@@ -19,6 +20,11 @@ typedef struct {
     PyArray_DTypeMeta *DType;
     PyArray_Descr *descr;
     int scalar_input;
+    PyArray_Descr *inferred_descr;
+    coercion_cache_obj *cache;
+    npy_discovery_info discovery;
+    int ndim;
+    npy_intp *shape;
 } creation_item;
 
 

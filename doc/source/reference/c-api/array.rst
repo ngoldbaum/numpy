@@ -3842,6 +3842,12 @@ member of ``PyArrayDTypeMeta_Spec`` struct.
    force newly created arrays to have a newly created descriptor
    instance, no matter what input descriptor is provided by a user.
 
+The private ``_array_converter`` retains dtype and shape discovery results
+before constructing arrays. Its cache preserves discovered sequence values
+and array-protocol results, allowing conversion policies to be resolved across
+operands before materialization. The ordinary array constructor and deferred
+conversion use the same assignment machinery.
+
 .. c:macro:: NPY_DT_get_constant
 
 .. c:type:: int (PyArrayDTypeMeta_GetConstant)( \

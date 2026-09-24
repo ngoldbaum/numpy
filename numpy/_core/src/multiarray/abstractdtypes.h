@@ -42,7 +42,7 @@ initialize_abstract_dtypes(void);
  * array when the original object was a Python scalar.
  *
  * @param obj The original Python object.
- * @param arr The array into which the Python object was converted.
+ * @param arr The temporary array to mark, or NULL for classification only.
  * @param[in,out] **dtype A borrowed pointer to the array's DType, if not NULL
  *        it will be replaced with the (effectively immortal) abstract DType.
  * @return 0 if the `obj` was not a python scalar, and 1 if it was.
@@ -52,21 +52,27 @@ npy_mark_tmp_array_if_pyscalar(
         PyObject *obj, PyArrayObject *arr, PyArray_DTypeMeta **dtype)
 {
     if (PyLong_CheckExact(obj)) {
-        _PyArray_GET_ITEM_DATA(arr)->flags |= NPY_ARRAY_WAS_PYTHON_INT;
+        if (arr != NULL) {
+            _PyArray_GET_ITEM_DATA(arr)->flags |= NPY_ARRAY_WAS_PYTHON_INT;
+        }
         if (dtype != NULL) {
             *dtype = &PyArray_PyLongDType;
         }
         return 1;
     }
     else if (PyFloat_CheckExact(obj)) {
-        _PyArray_GET_ITEM_DATA(arr)->flags |= NPY_ARRAY_WAS_PYTHON_FLOAT;
+        if (arr != NULL) {
+            _PyArray_GET_ITEM_DATA(arr)->flags |= NPY_ARRAY_WAS_PYTHON_FLOAT;
+        }
         if (dtype != NULL) {
             *dtype = &PyArray_PyFloatDType;
         }
         return 1;
     }
     else if (PyComplex_CheckExact(obj)) {
-        _PyArray_GET_ITEM_DATA(arr)->flags |= NPY_ARRAY_WAS_PYTHON_COMPLEX;
+        if (arr != NULL) {
+            _PyArray_GET_ITEM_DATA(arr)->flags |= NPY_ARRAY_WAS_PYTHON_COMPLEX;
+        }
         if (dtype != NULL) {
             *dtype = &PyArray_PyComplexDType;
         }

@@ -1525,7 +1525,6 @@ PyArray_FromAny_int(PyObject *op, PyArray_Descr *in_descr,
         return Py_NewRef(op);
     }
 
-    PyArrayObject *arr = NULL, *ret = NULL;
     PyArray_Descr *dtype = NULL;
     coercion_cache_obj *cache = NULL;
     int ndim = 0;
@@ -1546,7 +1545,7 @@ PyArray_FromAny_int(PyObject *op, PyArray_Descr *in_descr,
             copy, &was_copied_by__array__);
 
     if (ndim < 0) {
-        goto cleanup;
+        return NULL;
     }
 
     /* If the cache is NULL, then the object is considered a scalar */
@@ -1560,14 +1559,29 @@ PyArray_FromAny_int(PyObject *op, PyArray_Descr *in_descr,
         PyErr_SetString(PyExc_ValueError,
                 "object of too small depth for desired array");
         npy_free_coercion_cache(cache);
-        goto cleanup;
+        Py_XDECREF(dtype);
+        return NULL;
     }
     if (ndim > max_depth) {
         PyErr_SetString(PyExc_ValueError,
                 "object too deep for desired array");
         npy_free_coercion_cache(cache);
-        goto cleanup;
+        Py_XDECREF(dtype);
+        return NULL;
     }
+
+    return PyArray_FromDiscovery(op, in_descr, in_DType, flags, ndim,
+            dims, dtype, cache, was_copied_by__array__);
+}
+
+/* Consumes dtype and cache; all other arguments are borrowed. */
+NPY_NO_EXPORT PyObject *
+PyArray_FromDiscovery(PyObject *op, PyArray_Descr *in_descr,
+        PyArray_DTypeMeta *in_DType, int flags, int ndim, npy_intp const *dims,
+        PyArray_Descr *dtype, coercion_cache_obj *cache,
+        int was_copied_by__array__)
+{
+    PyArrayObject *arr = NULL, *ret = NULL;
 
     /* Got the correct parameters, but the cache may already hold the result */
     if (cache != NULL && !(cache->sequence)) {

@@ -687,6 +687,53 @@ npy_free_coercion_cache(coercion_cache_obj *next) {
 
 #undef COERCION_CACHE_CACHE_SIZE
 
+/* Cache copies let deferred callers materialize more than one descriptor
+ * without invoking sequence or array protocols again.
+ */
+NPY_NO_EXPORT coercion_cache_obj *
+npy_clone_coercion_cache(coercion_cache_obj *cache)
+{
+    coercion_cache_obj *head = NULL, **tail = &head;
+    for (; cache != NULL; cache = cache->next) {
+        if (npy_new_coercion_cache(cache->converted_obj,
+                Py_NewRef(cache->arr_or_sequence), cache->sequence,
+                &tail, cache->depth) < 0) {
+            npy_free_coercion_cache(head);
+            return NULL;
+        }
+    }
+    return head;
+}
+
+NPY_NO_EXPORT unsigned int
+npy_discovery_kind_from_dtype(PyArray_DTypeMeta *dtype)
+{
+    if (dtype == &PyArray_BytesDType) {
+        return NPY_DISCOVERY_BYTES;
+    }
+    if (dtype == &PyArray_UnicodeDType || dtype == &PyArray_StringDType) {
+        return NPY_DISCOVERY_TEXT;
+    }
+    return NPY_DISCOVERY_OTHER;
+}
+
+static int
+record_scalar(npy_discovery_info *info, PyObject *value, PyArray_Descr *descr)
+{
+    if (info == NULL) {
+        return 0;
+    }
+    info->kinds |= npy_discovery_kind_from_descr(descr);
+    if (info->scalars == NULL) {
+        info->scalars = PyList_New(0);
+        if (info->scalars == NULL) {
+            return -1;
+        }
+    }
+    return PyList_Append(info->scalars, value);
+}
+
+
 /**
  * Do the promotion step and possible casting. This function should
  * never be called if a descriptor was requested. In that case the output
@@ -748,7 +795,8 @@ handle_scalar(
         PyObject *obj, int curr_dims, int *max_dims,
         PyArray_Descr **out_descr, npy_intp *out_shape,
         PyArray_DTypeMeta *fixed_DType,
-        enum _dtype_discovery_flags *flags, PyArray_DTypeMeta *DType)
+        enum _dtype_discovery_flags *flags, PyArray_DTypeMeta *DType,
+        npy_discovery_info *info)
 {
     PyArray_Descr *descr;
 
@@ -766,7 +814,8 @@ handle_scalar(
     if (descr == NULL) {
         return -1;
     }
-    if (handle_promotion(out_descr, descr, fixed_DType, flags) < 0) {
+    if (record_scalar(info, obj, descr) < 0 ||
+            handle_promotion(out_descr, descr, fixed_DType, flags) < 0) {
         Py_DECREF(descr);
         return -1;
     }
@@ -839,7 +888,7 @@ find_descriptor_from_array(
             }
             int flat_max_dims = 0;
             if (handle_scalar(elem, 0, &flat_max_dims, out_descr,
-                    NULL, DType, &flags, item_DType) < 0) {
+                    NULL, DType, &flags, item_DType, NULL) < 0) {
                 Py_DECREF(iter);
                 Py_DECREF(elem);
                 Py_XDECREF(*out_descr);
@@ -987,7 +1036,7 @@ PyArray_DiscoverDTypeAndShape_Recursive(
         npy_intp out_shape[NPY_MAXDIMS],
         coercion_cache_obj ***coercion_cache_tail_ptr,
         PyArray_DTypeMeta *fixed_DType, enum _dtype_discovery_flags *flags,
-        int copy)
+        int copy, npy_discovery_info *info)
 {
     PyArrayObject *arr = NULL;
     PyObject *seq;
@@ -1024,7 +1073,7 @@ PyArray_DiscoverDTypeAndShape_Recursive(
     else {
         max_dims = handle_scalar(
                 obj, curr_dims, &max_dims, out_descr, out_shape, fixed_DType,
-                flags, DType);
+                flags, DType, info);
         Py_DECREF(DType);
         return max_dims;
     }
@@ -1059,6 +1108,10 @@ PyArray_DiscoverDTypeAndShape_Recursive(
         }
     }
     if (arr != NULL) {
+        if (info != NULL) {
+            info->has_array = NPY_TRUE;
+            info->kinds |= npy_discovery_kind_from_descr(PyArray_DESCR(arr));
+        }
         /*
          * This is an array object which will be added to the cache, keeps
          * the reference to the array alive (takes ownership).
@@ -1138,7 +1191,7 @@ PyArray_DiscoverDTypeAndShape_Recursive(
         /* Clear any PySequence_Size error which would corrupts further calls */
         max_dims = handle_scalar(
                 obj, curr_dims, &max_dims, out_descr, out_shape, fixed_DType,
-                flags, NULL);
+                flags, NULL, info);
         if (is_sequence) {
             /* Flag as ragged or too deep array */
             *flags |= FOUND_RAGGED_ARRAY;
@@ -1161,10 +1214,21 @@ PyArray_DiscoverDTypeAndShape_Recursive(
             PyErr_Clear();
             max_dims = handle_scalar(
                     obj, curr_dims, &max_dims, out_descr, out_shape, fixed_DType,
-                    flags, NULL);
+                    flags, NULL, info);
             return max_dims;
         }
         return -1;
+    }
+    if (info != NULL) {
+        /* Deferred conversion must see the values discovered here, even if
+         * the caller later mutates a list. seq is already a fast sequence.
+         */
+        PyObject *snapshot = PySequence_Tuple(seq);
+        Py_DECREF(seq);
+        if (snapshot == NULL) {
+            return -1;
+        }
+        seq = snapshot;
     }
     /* The cache takes ownership of the sequence here. */
     if (npy_new_coercion_cache(obj, seq, 1, coercion_cache_tail_ptr, curr_dims) < 0) {
@@ -1211,7 +1275,7 @@ PyArray_DiscoverDTypeAndShape_Recursive(
         max_dims = PyArray_DiscoverDTypeAndShape_Recursive(
                 objects[i], curr_dims + 1, max_dims,
                 out_descr, out_shape, coercion_cache_tail_ptr, fixed_DType,
-                flags, copy);
+                flags, copy, info);
 
         if (max_dims < 0) {
             goto finish;
@@ -1275,6 +1339,19 @@ PyArray_DiscoverDTypeAndShape(
         PyArray_DTypeMeta *fixed_DType, PyArray_Descr *requested_descr,
         PyArray_Descr **out_descr, int copy, int *was_copied_by__array__)
 {
+    return PyArray_DiscoverDTypeAndShapeWithInfo(obj, max_dims, out_shape,
+            coercion_cache, fixed_DType, requested_descr, out_descr, copy,
+            was_copied_by__array__, NULL);
+}
+
+NPY_NO_EXPORT int
+PyArray_DiscoverDTypeAndShapeWithInfo(
+        PyObject *obj, int max_dims, npy_intp out_shape[NPY_MAXDIMS],
+        coercion_cache_obj **coercion_cache,
+        PyArray_DTypeMeta *fixed_DType, PyArray_Descr *requested_descr,
+        PyArray_Descr **out_descr, int copy, int *was_copied_by__array__,
+        npy_discovery_info *info)
+{
     coercion_cache_obj **coercion_cache_head = coercion_cache;
     *coercion_cache = NULL;
     enum _dtype_discovery_flags flags = 0;
@@ -1321,7 +1398,7 @@ PyArray_DiscoverDTypeAndShape(
 
     int ndim = PyArray_DiscoverDTypeAndShape_Recursive(
             obj, 0, max_dims, out_descr, out_shape, &coercion_cache,
-            fixed_DType, &flags, copy);
+            fixed_DType, &flags, copy, info);
     if (ndim < 0) {
         goto fail;
     }

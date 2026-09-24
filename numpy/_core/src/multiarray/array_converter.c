@@ -10,17 +10,21 @@
 
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
+#include <limits.h>
 #include <structmember.h>
 
 #include "numpy/arrayobject.h"
 #include "arrayobject.h"
 #include "array_converter.h"
+#include "array_coercion.h"
 #include "arraywrap.h"
 #include "numpy/arrayscalars.h"
 #include "npy_argparse.h"
 #include "abstractdtypes.h"
+#include "alloc.h"
 #include "convert_datatype.h"
 #include "descriptor.h"
+#include "dtypemeta.h"
 #include "npy_static_data.h"
 #include "module_state.h"
 #include "ctors.h"
@@ -47,8 +51,8 @@ array_converter_new(
 
     Py_ssize_t narrs_ssize_t = (args == NULL) ? 0 : PyTuple_GET_SIZE(args);
     int narrs = (int)narrs_ssize_t;
-    /* Limit to NPY_MAXARGS for now. */
-    if (narrs_ssize_t > NPY_MAXARGS) {
+    /* result_type() may append one extra dtype. */
+    if (narrs_ssize_t >= INT_MAX) {
         PyErr_SetString(PyExc_RuntimeError,
             "too many arrays.");
         return NULL;
@@ -71,50 +75,54 @@ array_converter_new(
     self->flags = (NPY_CH_ALL_PYSCALARS | NPY_CH_ALL_SCALARS);
 
     creation_item *item = self->items;
-    /* increase self->narrs in loop for cleanup */
     for (int i = 0; i < narrs; i++, item++) {
-        item->object = PyTuple_GET_ITEM(args, i);
+        item->object = Py_NewRef(PyTuple_GET_ITEM(args, i));
+        self->narrs++;  /* all fields are zero-initialized for cleanup */
 
-        /* Fast path if input is an array (maybe FromAny should be faster): */
         if (PyArray_Check(item->object)) {
-            Py_INCREF(item->object);
-            item->array = (PyArrayObject *)item->object;
-            item->scalar_input = 0;
+            item->array = (PyArrayObject *)Py_NewRef(item->object);
+            item->inferred_descr = (PyArray_Descr *)Py_NewRef(
+                    PyArray_DESCR(item->array));
+            item->discovery.has_array = NPY_TRUE;
+            item->discovery.kinds = npy_discovery_kind_from_descr(
+                    item->inferred_descr);
         }
         else {
-            item->array = (PyArrayObject *)PyArray_FromAny_int(
-                    item->object, NULL, NULL, 0, NPY_MAXDIMS, 0,
-                    &item->scalar_input);
-            if (item->array == NULL) {
+            int was_copied = 0;
+            npy_intp shape[NPY_MAXDIMS];
+            item->ndim = PyArray_DiscoverDTypeAndShapeWithInfo(
+                    item->object, NPY_MAXDIMS, shape, &item->cache,
+                    NULL, NULL, &item->inferred_descr, -1, &was_copied,
+                    &item->discovery);
+            if (item->ndim < 0) {
                 goto fail;
             }
+            if (item->ndim > 0) {
+                item->shape = PyMem_Malloc(item->ndim * sizeof(npy_intp));
+                if (item->shape == NULL) {
+                    PyErr_NoMemory();
+                    goto fail;
+                }
+                memcpy(item->shape, shape, item->ndim * sizeof(npy_intp));
+            }
+            item->scalar_input = (item->cache == NULL);
+            if (item->inferred_descr == NULL) {
+                item->inferred_descr = PyArray_DescrFromType(NPY_DEFAULT_TYPE);
+                if (item->inferred_descr == NULL) {
+                    goto fail;
+                }
+            }
         }
-
-        /* At this point, assume cleanup should happen for this item */
-        self->narrs++;
-        Py_INCREF(item->object);
-        item->DType = NPY_DTYPE(PyArray_DESCR(item->array));
-
-        /*
-         * Check whether we were passed an int/float/complex Python scalar.
-         * If not, set `descr` and clear pyscalar/scalar flags as needed.
-         */
+        item->DType = NPY_DTYPE(item->inferred_descr);
         if (item->scalar_input && npy_mark_tmp_array_if_pyscalar(
-                item->object, item->array, &item->DType)) {
+                item->object, NULL, &item->DType)) {
             item->descr = NULL;
-            /* Do not mark the stored array: */
-            ((PyArrayObject_fields *)(item->array))->flags &= (
-                    ~NPY_ARRAY_WAS_PYTHON_LITERAL);
         }
         else {
-            item->descr = PyArray_DESCR(item->array);
-            Py_INCREF(item->descr);
-
-            if (item->scalar_input) {
-                self->flags &= ~NPY_CH_ALL_PYSCALARS;
-            }
-            else {
-                self->flags &= ~(NPY_CH_ALL_PYSCALARS | NPY_CH_ALL_SCALARS);
+            item->descr = (PyArray_Descr *)Py_NewRef(item->inferred_descr);
+            self->flags &= ~NPY_CH_ALL_PYSCALARS;
+            if (!item->scalar_input) {
+                self->flags &= ~NPY_CH_ALL_SCALARS;
             }
         }
         Py_INCREF(item->DType);
@@ -125,6 +133,27 @@ array_converter_new(
   fail:
     Py_DECREF(self);
     return NULL;
+}
+
+
+static PyArrayObject *
+materialize_item(creation_item *item, PyArray_Descr *hint)
+{
+    if (hint == NULL && item->array != NULL) {
+        return (PyArrayObject *)Py_NewRef(item->array);
+    }
+    coercion_cache_obj *cache = npy_clone_coercion_cache(item->cache);
+    if (item->cache != NULL && cache == NULL) {
+        return NULL;
+    }
+    PyArray_Descr *descr = (PyArray_Descr *)Py_NewRef(
+            hint == NULL ? item->inferred_descr : hint);
+    PyArrayObject *array = (PyArrayObject *)PyArray_FromDiscovery(
+            item->object, hint, NULL, 0, item->ndim, item->shape, descr, cache, 0);
+    if (array != NULL && hint == NULL) {
+        item->array = (PyArrayObject *)Py_NewRef(array);
+    }
+    return array;
 }
 
 
@@ -179,6 +208,7 @@ typedef enum {
     CONVERT = 0,
     PRESERVE = 1,
     CONVERT_IF_NO_ARRAY = 2,
+    PRESERVE_ALL = 3,
 } scalar_policy;
 
 
@@ -212,77 +242,67 @@ pyscalar_mode_conv(PyObject *obj, scalar_policy *policy)
             return 1;
         }
     }
+    if (PyUnicode_CompareWithASCIIString(obj, "preserve_all") == 0) {
+        *policy = PRESERVE_ALL;
+        return 1;
+    }
     PyErr_SetString(PyExc_ValueError,
-            "invalid pyscalar mode, must be 'convert', 'preserve', or "
-            "'convert_if_no_array' (default).");
+            "invalid pyscalar mode, must be 'convert', 'preserve', "
+            "'preserve_all', or 'convert_if_no_array' (default).");
     return 0;
 }
 
 
-/*
- * NOTE: array__wrapit in multiarraymodule.c calls `as_arrays` and `wrap`
- * by interned name at runtime (with the `subok=`/`to_scalar=` keywords,
- * interned in npy_static_data.c), and relies on `as_arrays` returning a
- * length-1 tuple for a single-input converter.  Keep it in sync when
- * changing the API of either method.
- */
+static PyObject *
+converter_as_arrays(PyArrayArrayConverterObject *self, npy_bool subok,
+        scalar_policy policy)
+{
+    if (policy == CONVERT_IF_NO_ARRAY) {
+        policy = (self->flags & NPY_CH_ALL_PYSCALARS) ? CONVERT : PRESERVE;
+    }
+    PyObject *result = PyTuple_New(self->narrs);
+    if (result == NULL) {
+        return NULL;
+    }
+    for (int i = 0; i < self->narrs; i++) {
+        creation_item *item = &self->items[i];
+        PyObject *value;
+        if ((item->descr == NULL && policy == PRESERVE) ||
+                (item->scalar_input && policy == PRESERVE_ALL)) {
+            value = Py_NewRef(item->object);
+        }
+        else {
+            value = (PyObject *)materialize_item(item, NULL);
+            if (value != NULL && !subok) {
+                value = PyArray_EnsureArray(value);  /* steals reference */
+            }
+            if (value == NULL) {
+                Py_DECREF(result);
+                return NULL;
+            }
+        }
+        PyTuple_SET_ITEM(result, i, value);
+    }
+    return result;
+}
+
+
+/* array__wrapit calls this by interned name with the subok keyword. */
 static PyObject *
 array_converter_as_arrays(PyArrayArrayConverterObject *self,
         PyObject *const *args, Py_ssize_t len_args, PyObject *kwnames)
 {
     npy_bool subok = NPY_TRUE;
     scalar_policy policy = CONVERT_IF_NO_ARRAY;
-
     NPY_PREPARE_ARGPARSER;
-    /* pyscalars: how to handle scalars (ignored if dtype is given). */
     if (npy_parse_arguments("as_arrays", args, len_args, kwnames,
             {"$subok", &PyArray_BoolConverter, &subok},
             {"$pyscalars", &pyscalar_mode_conv, &policy}) < 0) {
         return NULL;
     }
-    if (policy == CONVERT_IF_NO_ARRAY) {
-        if (self->flags & NPY_CH_ALL_PYSCALARS) {
-            policy = CONVERT;
-        }
-        else {
-            policy = PRESERVE;
-        }
-    }
-
-    PyObject *res = PyTuple_New(self->narrs);
-    if (res == NULL) {
-        return NULL;
-    }
-    creation_item *item = self->items;
-    for (int i = 0; i < self->narrs; i++, item++) {
-        PyObject *res_item;
-        if (item->descr == NULL && policy == PRESERVE) {
-            res_item = item->object;
-            Py_INCREF(res_item);
-        }
-        else {
-            res_item = (PyObject *)item->array;
-            Py_INCREF(res_item);
-            if (!subok) {
-                /* PyArray_EnsureArray steals the reference... */
-                res_item = PyArray_EnsureArray(res_item);
-                if (res_item == NULL) {
-                    goto fail;
-                }
-            }
-        }
-
-        if (PyTuple_SetItem(res, i, res_item) < 0) {
-            goto fail;
-        }
-    }
-
-    return res;
-
-  fail:
-    Py_DECREF(res);
-    return NULL;
+    return converter_as_arrays(self, subok, policy);
 }
+
 
 
 static PyObject *
@@ -435,6 +455,12 @@ array_converter_traverse(
         Py_VISIT(item->object);
         Py_VISIT(item->DType);
         Py_VISIT(item->descr);
+        Py_VISIT(item->inferred_descr);
+        Py_VISIT(item->discovery.scalars);
+        for (coercion_cache_obj *cache = item->cache;
+                cache != NULL; cache = cache->next) {
+            Py_VISIT(cache->arr_or_sequence);
+        }
     }
 
     Py_VISIT(self->wrap);
@@ -453,6 +479,12 @@ array_converter_clear(PyArrayArrayConverterObject *self)
         Py_CLEAR(item->object);
         Py_CLEAR(item->DType);
         Py_CLEAR(item->descr);
+        Py_CLEAR(item->inferred_descr);
+        Py_CLEAR(item->discovery.scalars);
+        npy_free_coercion_cache(item->cache);
+        item->cache = NULL;
+        PyMem_Free(item->shape);
+        item->shape = NULL;
     }
 
     Py_CLEAR(self->wrap);
@@ -495,7 +527,7 @@ array_converter_item(PyArrayArrayConverterObject *self, Py_ssize_t item)
         res = self->items[item].object;
     }
     else {
-        res = (PyObject *)self->items[item].array;
+        return (PyObject *)materialize_item(&self->items[item], NULL);
     }
 
     Py_INCREF(res);

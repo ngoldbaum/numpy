@@ -1,7 +1,15 @@
 #ifndef NUMPY_CORE_SRC_MULTIARRAY_CTORS_H_
 #define NUMPY_CORE_SRC_MULTIARRAY_CTORS_H_
 
+#include "array_coercion.h"
+
 extern NPY_NO_EXPORT const char *npy_no_copy_err_msg;
+
+NPY_NO_EXPORT PyObject *
+PyArray_FromDiscovery(PyObject *op, PyArray_Descr *in_descr,
+        PyArray_DTypeMeta *in_DType, int flags, int ndim, npy_intp const *dims,
+        PyArray_Descr *dtype, coercion_cache_obj *cache,
+        int was_copied_by__array__);
 
 
 NPY_NO_EXPORT PyObject *
