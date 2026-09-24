@@ -1617,6 +1617,14 @@ def test_rational2_uses_new_dtype_api():
             match=r".* no common DType exists for the given inputs"):
         np.result_type(rational2, 1.0)
 
+    # The extension registers contextual discovery through the public slot.
+    from numpy._core._multiarray_umath import _array_converter
+
+    converter = _array_converter(np.array([rational2(1, 2)]))
+    assert converter.result_type_hint(1) == np.dtype(rational2)
+    assert converter.result_type_hint(1.) is None
+    assert converter.result_type_hint(np.int64(1)) is None
+
 
 @pytest.mark.parametrize("rat_cls", [rational, rational2])
 def test_rational_dtype(rat_cls):

@@ -942,6 +942,19 @@ rational2_repr(PyObject *self) {
     return descr_repr(self);
 }
 
+static int
+rational2_discover_with_context(npy_intp NPY_UNUSED(ndescrs),
+        PyArray_Descr *const descrs[], PyObject *value,
+        NPY_DTYPE_CONTEXT context, PyArray_Descr **out)
+{
+    if (context != NPY_DTYPE_CONTEXT_RESULT || !PyLong_CheckExact(value)) {
+        return 0;
+    }
+    *out = (PyArray_Descr *)Py_NewRef(descrs[0]);
+    return 1;
+}
+
+
 /*
  * A DType is an instance of the `PyArrayDTypeMeta_Type` metaclass, so it is
  * built with `PyType_FromMetaclass`, which NumPy's metaclass allows by
@@ -1429,6 +1442,7 @@ _rational_tests_exec(PyObject *m)
         PyType_Slot dtype_slots[] = {
             {NPY_DT_legacy_descriptor_proto, &npyrational_descr_proto},
             {NPY_DT_common_dtype, rational2_common_dtype},
+            {NPY_DT_discover_descr_with_context, rational2_discover_with_context},
             {NPY_DT_getitem, rational2_getitem},
             {NPY_DT_setitem, rational2_setitem},
             {0, NULL},

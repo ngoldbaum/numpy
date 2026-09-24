@@ -1,0 +1,8 @@
+DTypes can interpret Python values using existing dtype settings
+---------------------------------------------------------------
+The optional ``NPY_DT_discover_descr_with_context`` DType slot lets a DType
+interpret Python operands, sequence elements, and callback results using
+existing descriptors. It can preserve settings that a Python scalar does not
+carry, such as StringDType's missing-value sentinel. DTypes without this slot
+retain ordinary discovery. Existing public C API conversion functions keep
+their behavior.

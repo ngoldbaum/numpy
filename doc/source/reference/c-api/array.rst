@@ -3857,16 +3857,20 @@ checks the resolved contextual descriptors for claimed operands, so configured
 missing sentinels do not count as unrelated numeric or object inputs. These
 private options do not change default array creation or concatenation policy.
 
-.. c:macro:: _NPY_DT_discover_descr_with_context
+.. c:macro:: NPY_DT_discover_descr_with_context
 
 .. c:type:: int (PyArrayDTypeMeta_DiscoverDescrWithContext)( \
                 npy_intp ndescrs, PyArray_Descr *const descrs[], PyObject *value, \
                 NPY_DTYPE_CONTEXT context, PyArray_Descr **out)
 
-   This private, experimental slot discovers a Python value's descriptor
-   using existing descriptors as context. Its interface may change without
-   notice. Callers can use it when inferring callback output dtypes or
-   converting operands together.
+   .. versionadded:: 2.6
+
+   This optional slot discovers a Python value's descriptor using existing
+   descriptors as context. Register it in ``PyArrayDTypeMeta_Spec.slots`` when
+   calling :c:func:`PyArrayInitDTypeMeta_FromSpec`. NumPy uses it when inferring
+   callback output dtypes or converting operands together. Extensions that
+   require this slot should set ``NPY_TARGET_VERSION`` to
+   ``NPY_2_6_API_VERSION`` or later.
 
    The hook is called with the GIL held, once per participating DType for each
    eligible value. *descrs* is a nonempty array of borrowed descriptors of that
@@ -3880,7 +3884,7 @@ private options do not change default array creation or concatenation policy.
    * ``NPY_DTYPE_CONTEXT_OPERAND`` interprets an untyped scalar operand.
      The caller converts the original object with the discovered descriptor,
      then includes it in ordinary promotion with the other operands.
-   * ``NPY_DTYPE_CONTEXT_SEQUENCE_ELEMENT`` interprets leaves of a builtin
+   * ``NPY_DTYPE_CONTEXT_SEQUENCE_ELEMENT`` interprets scalar leaves of a
      Python sequence operand. Every leaf must opt in to the same DType;
      their descriptors are promoted before converting the original sequence.
      Otherwise the entire sequence retains ordinary discovery. Empty sequences
@@ -3890,6 +3894,9 @@ private options do not change default array creation or concatenation policy.
      descriptor determines that output's dtype; unrelated input dtypes do not
      participate in its promotion. The callback consumers inspect the first
      result for each output, as with ordinary output inference.
+
+   Hooks should return 0 for unrecognized context values, allowing NumPy to
+   introduce additional contexts without changing existing DType behavior.
 
    Context descriptors remain fixed while resolving the operands of a call.
    Multiple distinct DTypes claiming a value raise a ``DTypePromotionError``:
@@ -3904,7 +3911,9 @@ private options do not change default array creation or concatenation policy.
    inspect array elements or repeat sequence and array protocols. Arrays and
    array-like objects within a sequence prevent contextual reinterpretation
    of that operand. The hook is opt-in at the call site and does not change
-   `numpy.result_type` or global array discovery.
+   `numpy.result_type`, global array discovery, or existing public C API
+   conversion functions such as :c:func:`PyArray_Where` and
+   :c:func:`PyArray_Concatenate`.
 
    Accepting an object for assignment does not imply it should be claimed for
    contextual discovery. StringDType recognizes plain strings and its

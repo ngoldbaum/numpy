@@ -188,8 +188,13 @@ stringdtype_is_na(PyArray_StringDTypeObject *descr, PyObject *obj)
 static int
 stringdtype_discover_descr_with_context(npy_intp ndescrs,
         PyArray_Descr *const descrs[], PyObject *value,
-        NPY_DTYPE_CONTEXT NPY_UNUSED(context), PyArray_Descr **out)
+        NPY_DTYPE_CONTEXT context, PyArray_Descr **out)
 {
+    if (context != NPY_DTYPE_CONTEXT_OPERAND &&
+            context != NPY_DTYPE_CONTEXT_SEQUENCE_ELEMENT &&
+            context != NPY_DTYPE_CONTEXT_RESULT) {
+        return 0;
+    }
     /* Only StringDType loses its descriptor through its Python str scalar. */
     if (NPY_DTYPE(descrs[0]) != &PyArray_StringDType) {
         return 0;
@@ -805,7 +810,7 @@ static PyType_Slot PyArray_StringDType_Slots[] = {
         {NPY_DT_PyArray_ArrFuncs_argmin, &argmin},
         {NPY_DT_get_clear_loop, &stringdtype_get_clear_loop},
         {NPY_DT_finalize_descr, &stringdtype_finalize_descr},
-        {_NPY_DT_discover_descr_with_context,
+        {NPY_DT_discover_descr_with_context,
          &stringdtype_discover_descr_with_context},
         {_NPY_DT_is_known_scalar_type, &stringdtype_is_known_scalar_type},
         {0, NULL}};

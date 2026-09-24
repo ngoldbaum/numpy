@@ -431,8 +431,7 @@ typedef int (PyArrayMethod_PromoterFunction)(PyObject *ufunc,
 #define NPY_DT_get_fill_zero_loop 10
 #define NPY_DT_finalize_descr 11
 #define NPY_DT_get_constant 12
-// Experimental contextual discovery for Python operands and callback results.
-#define _NPY_DT_discover_descr_with_context 13
+#define NPY_DT_discover_descr_with_context 13
 
 // These PyArray_ArrFunc slots will be deprecated and replaced eventually
 // getitem and setitem can be defined as a performance optimization;
@@ -542,11 +541,11 @@ typedef PyArray_Descr *(PyArrayDTypeMeta_EnsureCanonical)(PyArray_Descr *dtype);
  */
 typedef PyArray_Descr *(PyArrayDTypeMeta_FinalizeDescriptor)(PyArray_Descr *dtype);
 
-/* Private, experimental contexts for descriptor discovery. */
+/* Contexts for descriptor discovery.  Hooks should decline unknown contexts. */
 typedef enum {
-    NPY_DTYPE_CONTEXT_OPERAND,
-    NPY_DTYPE_CONTEXT_RESULT,
-    NPY_DTYPE_CONTEXT_SEQUENCE_ELEMENT,
+    NPY_DTYPE_CONTEXT_OPERAND = 0,
+    NPY_DTYPE_CONTEXT_RESULT = 1,
+    NPY_DTYPE_CONTEXT_SEQUENCE_ELEMENT = 2,
 } NPY_DTYPE_CONTEXT;
 
 /*
