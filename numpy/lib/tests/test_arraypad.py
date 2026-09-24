@@ -559,6 +559,24 @@ class TestStatistic:
 
 
 class TestConstant:
+    @pytest.mark.parametrize("dtype, value", [
+        (np.dtypes.StringDType(coerce=False), "x\0"),
+        (object, "x\0"), (object, b"x\0"),
+    ])
+    def test_string_constants(self, dtype, value):
+        a = np.array([value], dtype=dtype)
+        for constants, expected in [(value, [value] * 3),
+                                    ((value, value * 2), [value, value, value * 2])]:
+            result = np.pad(a, 1, constant_values=constants)
+            assert_array_equal(result, np.array(expected, dtype=dtype),
+                               strict=True)
+
+    def test_integer_constant_overflow(self):
+        # Preserve the existing conversion through NumPy integer scalars.
+        a = np.array([1], dtype=np.uint8)
+        assert_array_equal(np.pad(a, 1, constant_values=300),
+                           np.array([44, 1, 44], dtype=a.dtype), strict=True)
+
     def test_check_constant(self):
         a = np.arange(100)
         a = np.pad(a, (25, 20), 'constant', constant_values=(10, 20))

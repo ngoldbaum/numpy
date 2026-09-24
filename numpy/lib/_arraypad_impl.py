@@ -533,7 +533,12 @@ def _as_pairs(x, ndim, as_index=False):
         # with an AttributeError
         return ((None, None),) * ndim
 
+    original = x
     x = np.array(x)
+    if not as_index and x.dtype.kind in "SU":
+        # Fixed-width string scalars discard trailing NULs when extracted.
+        # Keep the original values until assignment to the padded array.
+        x = np.array(original, dtype=object)
     if as_index:
         x = np.round(x).astype(np.intp, copy=False)
 
