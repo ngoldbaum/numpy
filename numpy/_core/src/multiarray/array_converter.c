@@ -204,6 +204,151 @@ find_wrap(PyArrayArrayConverterObject *self)
 }
 
 
+/*
+ * Discover a Python value's descriptor from a fixed set of context descriptors.
+ * This does not promote the value with the context: callback outputs may have
+ * an unrelated dtype.  Operand callers perform ordinary promotion afterwards.
+ */
+static int
+npy_discover_descr_with_context(npy_intp ncontext,
+        PyArray_Descr *const context_descrs[], PyObject *value,
+        NPY_DTYPE_CONTEXT context, PyArray_Descr **out)
+{
+    *out = NULL;
+    if (PyArray_Check(value) || PyArray_IsScalar(value, Generic)) {
+        return 0;
+    }
+    /* Registered custom scalars also keep their own dtype.  Builtin Python
+     * scalars and otherwise unknown objects (including NA sentinels) may opt in.
+     */
+    PyTypeObject *type = Py_TYPE(value);
+    if (type != &PyLong_Type && type != &PyFloat_Type &&
+            type != &PyComplex_Type && type != &PyBool_Type &&
+            type != &PyUnicode_Type && type != &PyBytes_Type) {
+        PyObject *dtype = PyArray_DiscoverDTypeFromScalarType(type);
+        if (dtype != NULL) {
+            Py_DECREF(dtype);
+            return 0;
+        }
+        if (PyErr_Occurred()) {
+            return -1;
+        }
+    }
+
+    NPY_ALLOC_WORKSPACE(descrs, PyArray_Descr *, 8, ncontext);
+    if (descrs == NULL) {
+        return -1;
+    }
+    for (npy_intp i = 0; i < ncontext; i++) {
+        if (context_descrs[i] == NULL) {
+            continue;
+        }
+        PyArray_DTypeMeta *dtype = NPY_DTYPE(context_descrs[i]);
+        PyArrayDTypeMeta_DiscoverDescrWithContext *discover =
+                NPY_DT_SLOTS(dtype)->discover_descr_with_context;
+        if (discover == NULL) {
+            continue;
+        }
+        /* Call each DType once, with all of its context descriptors. */
+        npy_intp j;
+        for (j = 0; j < i; j++) {
+            if (context_descrs[j] != NULL &&
+                    NPY_DTYPE(context_descrs[j]) == dtype) {
+                break;
+            }
+        }
+        if (j != i) {
+            continue;
+        }
+        npy_intp ndescrs = 0;
+        for (j = i; j < ncontext; j++) {
+            if (context_descrs[j] != NULL &&
+                    NPY_DTYPE(context_descrs[j]) == dtype) {
+                descrs[ndescrs++] = context_descrs[j];
+            }
+        }
+        PyArray_Descr *candidate = NULL;
+        int res = discover(ndescrs, descrs, value, context, &candidate);
+        if (res < 0) {
+            Py_XDECREF(candidate);
+            goto fail;
+        }
+        if (res == 0 && candidate == NULL) {
+            continue;
+        }
+        if (res != 1 || candidate == NULL || !PyArray_DescrCheck(candidate) ||
+                NPY_DTYPE(candidate) != dtype) {
+            Py_XDECREF(candidate);
+            PyErr_SetString(PyExc_TypeError,
+                    "discover_descr_with_context must decline or return "
+                    "a descriptor of its own DType");
+            goto fail;
+        }
+        if (*out != NULL) {
+            Py_DECREF(candidate);
+            PyErr_SetString(_npy_module_state->static_pydata.DTypePromotionError,
+                    "Multiple DTypes claim the Python value during "
+                    "contextual dtype discovery");
+            goto fail;
+        }
+        *out = candidate;
+    }
+    npy_free_workspace(descrs);
+    return *out == NULL ? 0 : 1;
+
+  fail:
+    Py_CLEAR(*out);
+    npy_free_workspace(descrs);
+    return -1;
+}
+
+
+/* The ordinary discovery traversal already classified every leaf and
+ * converted array-like objects. Interpret its recorded scalars without
+ * revisiting Python sequence or array protocols.
+ */
+static int
+resolve_item_with_context(creation_item *item, npy_intp ndescrs,
+        PyArray_Descr *const descrs[], PyArray_Descr **out)
+{
+    *out = NULL;
+    if (item->discovery.has_array || item->discovery.scalars == NULL) {
+        return 0;
+    }
+    NPY_DTYPE_CONTEXT context = item->scalar_input ?
+            NPY_DTYPE_CONTEXT_OPERAND : NPY_DTYPE_CONTEXT_SEQUENCE_ELEMENT;
+    PyObject *scalars = item->discovery.scalars;
+    for (Py_ssize_t i = 0; i < PyList_GET_SIZE(scalars); i++) {
+        PyArray_Descr *candidate = NULL;
+        int res = npy_discover_descr_with_context(ndescrs, descrs,
+                PyList_GET_ITEM(scalars, i), context, &candidate);
+        if (res <= 0) {
+            Py_CLEAR(*out);
+            return res;
+        }
+        if (*out == NULL) {
+            *out = candidate;
+            continue;
+        }
+        if (NPY_DTYPE(*out) != NPY_DTYPE(candidate)) {
+            Py_DECREF(candidate);
+            Py_CLEAR(*out);
+            return 0;
+        }
+        PyArray_Descr *common = PyArray_PromoteTypes(*out, candidate);
+        Py_DECREF(candidate);
+        Py_SETREF(*out, common);
+        if (common == NULL) {
+            return -1;
+        }
+    }
+    return *out == NULL ? 0 : 1;
+}
+
+
+/* Provenance is recorded before promotion, so this also sees mixtures within
+ * an individual sequence. Object arrays contribute their dtype, not contents.
+ */
 static int
 check_string_promotion(unsigned int kinds)
 {
@@ -215,6 +360,31 @@ check_string_promotion(unsigned int kinds)
         return -1;
     }
     return 0;
+}
+
+
+static PyObject *
+array_converter_result_type_hint(PyArrayArrayConverterObject *self,
+                                PyObject *result)
+{
+    NPY_ALLOC_WORKSPACE(descrs, PyArray_Descr *, 8, self->narrs);
+    if (descrs == NULL) {
+        return NULL;
+    }
+    for (int i = 0; i < self->narrs; i++) {
+        descrs[i] = self->items[i].descr;
+    }
+    PyArray_Descr *hint = NULL;
+    int res = npy_discover_descr_with_context(
+            self->narrs, descrs, result, NPY_DTYPE_CONTEXT_RESULT, &hint);
+    npy_free_workspace(descrs);
+    if (res < 0) {
+        return NULL;
+    }
+    if (res == 0) {
+        Py_RETURN_NONE;
+    }
+    return (PyObject *)hint;
 }
 
 
@@ -269,43 +439,80 @@ pyscalar_mode_conv(PyObject *obj, scalar_policy *policy)
 
 static PyObject *
 converter_as_arrays(PyArrayArrayConverterObject *self, npy_bool subok,
-        scalar_policy policy, npy_bool strict_strings)
+        scalar_policy policy, npy_bool with_context, npy_bool strict_strings,
+        npy_bool mark_literals)
 {
-    if (strict_strings) {
-        unsigned int kinds = 0;
-        for (int i = 0; i < self->narrs; i++) {
-            kinds |= self->items[i].discovery.kinds;
-        }
-        if (check_string_promotion(kinds) < 0) {
-            return NULL;
-        }
-    }
     if (policy == CONVERT_IF_NO_ARRAY) {
         policy = (self->flags & NPY_CH_ALL_PYSCALARS) ? CONVERT : PRESERVE;
     }
-    PyObject *result = PyTuple_New(self->narrs);
-    if (result == NULL) {
+    NPY_ALLOC_WORKSPACE(descrs, PyArray_Descr *, 8, self->narrs);
+    if (descrs == NULL) {
         return NULL;
+    }
+    NPY_ALLOC_WORKSPACE(hints, PyArray_Descr *, 8, self->narrs);
+    if (hints == NULL) {
+        npy_free_workspace(descrs);
+        return NULL;
+    }
+    for (int i = 0; i < self->narrs; i++) {
+        descrs[i] = self->items[i].descr;
+        hints[i] = NULL;
+    }
+    PyObject *result = NULL;
+    unsigned int kinds = 0;
+    for (int i = 0; i < self->narrs; i++) {
+        creation_item *item = &self->items[i];
+        if (with_context && resolve_item_with_context(
+                item, self->narrs, descrs, &hints[i]) < 0) {
+            goto finish;
+        }
+        kinds |= hints[i] == NULL ? item->discovery.kinds :
+                npy_discovery_kind_from_descr(hints[i]);
+    }
+    /* Validate all inputs before materializing any of them. */
+    if (strict_strings && check_string_promotion(kinds) < 0) {
+        goto finish;
+    }
+    result = PyTuple_New(self->narrs);
+    if (result == NULL) {
+        goto finish;
     }
     for (int i = 0; i < self->narrs; i++) {
         creation_item *item = &self->items[i];
         PyObject *value;
-        if ((item->descr == NULL && policy == PRESERVE) ||
-                (item->scalar_input && policy == PRESERVE_ALL)) {
+        if (hints[i] == NULL &&
+                ((item->descr == NULL && policy == PRESERVE) ||
+                 (item->scalar_input && policy == PRESERVE_ALL))) {
             value = Py_NewRef(item->object);
         }
         else {
-            value = (PyObject *)materialize_item(item, NULL);
-            if (value != NULL && !subok) {
-                value = PyArray_EnsureArray(value);  /* steals reference */
+            PyArrayObject *array = materialize_item(item, hints[i]);
+            if (array == NULL) {
+                Py_CLEAR(result);
+                goto finish;
             }
-            if (value == NULL) {
-                Py_DECREF(result);
-                return NULL;
+            if (mark_literals && hints[i] == NULL) {
+                npy_mark_tmp_array_if_pyscalar(item->object, array, NULL);
+                npy_mark_tmp_array_if_pystr(item->object, array);
+            }
+            value = (PyObject *)array;
+            if (!subok) {
+                value = PyArray_EnsureArray(value);  /* steals reference */
+                if (value == NULL) {
+                    Py_CLEAR(result);
+                    goto finish;
+                }
             }
         }
         PyTuple_SET_ITEM(result, i, value);
     }
+
+  finish:
+    for (int i = 0; i < self->narrs; i++) {
+        Py_XDECREF(hints[i]);
+    }
+    npy_free_workspace(hints);
+    npy_free_workspace(descrs);
     return result;
 }
 
@@ -315,19 +522,36 @@ static PyObject *
 array_converter_as_arrays(PyArrayArrayConverterObject *self,
         PyObject *const *args, Py_ssize_t len_args, PyObject *kwnames)
 {
-    npy_bool subok = NPY_TRUE;
-    scalar_policy policy = CONVERT_IF_NO_ARRAY;
+    npy_bool subok = NPY_TRUE, with_context = NPY_FALSE;
     npy_bool strict_strings = NPY_FALSE;
+    scalar_policy policy = CONVERT_IF_NO_ARRAY;
     NPY_PREPARE_ARGPARSER;
     if (npy_parse_arguments("as_arrays", args, len_args, kwnames,
             {"$subok", &PyArray_BoolConverter, &subok},
+            {"$with_context", &PyArray_BoolConverter, &with_context},
             {"$strict_strings", &PyArray_BoolConverter, &strict_strings},
             {"$pyscalars", &pyscalar_mode_conv, &policy}) < 0) {
         return NULL;
     }
-    return converter_as_arrays(self, subok, policy, strict_strings);
+    return converter_as_arrays(self, subok, policy, with_context,
+            strict_strings, NPY_FALSE);
 }
 
+
+NPY_NO_EXPORT PyObject *
+npy_convert_operands(PyObject *operands, int with_context, int strict_strings)
+{
+    PyTypeObject *type = _npy_module_state->PyArrayArrayConverter_Type;
+    PyArrayArrayConverterObject *converter = (PyArrayArrayConverterObject *)
+            array_converter_new(type, operands, NULL);
+    if (converter == NULL) {
+        return NULL;
+    }
+    PyObject *arrays = converter_as_arrays(converter, NPY_TRUE, CONVERT,
+            with_context, strict_strings, NPY_TRUE);
+    Py_DECREF(converter);
+    return arrays;
+}
 
 
 static PyObject *
@@ -472,6 +696,9 @@ static PyMethodDef array_converter_methods[] = {
     {"result_type",
         (PyCFunction)array_converter_result_type,
         METH_FASTCALL | METH_KEYWORDS, NULL},
+    {"result_type_hint",
+        (PyCFunction)array_converter_result_type_hint,
+        METH_O, NULL},
     {"wrap",
         (PyCFunction)array_converter_wrap,
         METH_FASTCALL | METH_KEYWORDS, NULL},

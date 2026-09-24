@@ -12222,6 +12222,64 @@ class TestStringPromotionDiscovery:
             conv.result_type(extra_dtype="U", strict_strings=True)
 
 
+class TestContextualArrayConverter:
+    def test_preserve_all_scalars(self):
+        from numpy._core._multiarray_umath import _array_converter
+
+        values = (1, "x\0", b"x\0", None, np.float32(2))
+        conv = _array_converter(*values)
+        assert all(a is b for a, b in zip(
+            values, conv.as_arrays(pyscalars="preserve_all")))
+        a = np.array(["a"], dtype=np.dtypes.StringDType(na_object=None))
+        _, result = _array_converter(a, None).as_arrays(
+            pyscalars="preserve_all", with_context=True, strict_strings=True)
+        assert_array_equal(result, np.array(None, dtype=a.dtype), strict=True)
+
+    def test_array_protocol_is_typed(self):
+        from numpy._core._multiarray_umath import _array_converter
+
+        class ArrayLike:
+            def __array__(self, dtype=None, copy=None):
+                return np.array(3, dtype=dtype)
+
+            def __int__(self):
+                return 4
+
+        value = ArrayLike()
+        a = np.array(["a"], dtype=np.dtypes.StringDType(na_object=value))
+        # Ordinary discovery uses __array__ directly, but assignment of a
+        # nested zero-dimensional array-like retains its scalar conversion.
+        for other, expected in [(value, np.array(3)), ([value], np.array([4]))]:
+            conv = _array_converter(a, other)
+            result = conv.as_arrays(with_context=True)[1]
+            assert_array_equal(result, expected, strict=True)
+
+    def test_contextual_sequence_discovery(self):
+        from collections import UserList
+
+        from numpy._core._multiarray_umath import _array_converter
+
+        dtype = np.dtypes.StringDType(na_object=None, coerce=False)
+        a = np.array(["a"], dtype=dtype)
+        values = UserList([["x\0", None], ["y\0", "z"]])
+        expected = np.array(values, dtype=dtype)
+        ordinary = np.array(values)
+        conv = _array_converter(a, values)
+        values[0][:] = ["changed"]
+        _, result = conv.as_arrays(with_context=True)
+        assert_array_equal(result, expected, strict=True)
+        # Contextual discovery must not mutate the converter's stored inputs.
+        assert_array_equal(conv.as_arrays()[1], ordinary, strict=True)
+
+        # Empty sequences, typed leaves, and mixed unclaimed values keep
+        # ordinary discovery. One accepted leaf must not coerce its neighbors.
+        for values in [[], [np.str_("x\0")], [np.array("x\0")],
+                       ["x\0", 1.0]]:
+            conv = _array_converter(a, values)
+            assert_array_equal(conv.as_arrays(with_context=True)[1],
+                               np.array(values), strict=True)
+
+
 class TestSubinterpreterTeardown:
     """
     ``_multiarray_umath`` declares Py_MOD_MULTIPLE_INTERPRETERS_NOT_SUPPORTED,

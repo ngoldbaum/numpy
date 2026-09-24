@@ -40,4 +40,8 @@ typedef struct {
 }  PyArrayArrayConverterObject;
 
 
+/* operands is a tuple; return a new tuple of arrays with literal flags. */
+NPY_NO_EXPORT PyObject *
+npy_convert_operands(PyObject *operands, int with_context, int strict_strings);
+
 #endif  /* NUMPY_CORE_SRC_MULTIARRAY_ARRAY_CONVERTER_H_ */

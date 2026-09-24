@@ -4,6 +4,7 @@ import pytest
 
 import numpy as np
 from numpy._core._multiarray_umath import (
+    _array_converter,
     _discover_array_parameters as discover_array_params,
     _get_sfloat_dtype,
 )
@@ -55,6 +56,28 @@ class TestSFloat:
         # But most of NumPy (when writing) does not understand DType classes
         dt, _ = discover_array_params([1., 2., 3.], dtype=SF)
         assert dt == SF(1.)
+
+    def test_output_dtype_hint(self):
+        a = self._get_array(2.)
+        b = self._get_array(4.)
+        text = np.array(["x"], dtype=np.dtypes.StringDType(na_object=np.nan))
+        # Group descriptors of the same DType, ignoring unrelated inputs.
+        for inputs in [(a, text, b), (b, text, a)]:
+            converter = _array_converter(*inputs)
+            assert converter.result_type_hint(1.) == SF(4.)
+            assert converter.result_type_hint("x") == text.dtype
+            assert converter.result_type_hint(1) is None
+            assert converter.result_type_hint(np.asarray(1.)) is None
+            # Both DTypes claim a plain NaN, making interpretation ambiguous.
+            with pytest.raises(np.exceptions.DTypePromotionError,
+                               match="Multiple DTypes"):
+                converter.result_type_hint(float("nan"))
+
+        # The same hook can decline operands while claiming callback results.
+        converter = _array_converter(a, 1.0)
+        _, scalar = converter.as_arrays(pyscalars="preserve", with_context=True)
+        assert type(scalar) is float
+        assert scalar == 1.0
 
     @pytest.mark.parametrize("scaling", [1., -1., 2.])
     def test_scaled_float_from_floats(self, scaling):

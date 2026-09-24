@@ -72,6 +72,8 @@ typedef struct {
      * for all values.
      */
     PyArrayDTypeMeta_GetConstant *get_constant;
+    /* NULL means Python values use ordinary dtype discovery. */
+    PyArrayDTypeMeta_DiscoverDescrWithContext *discover_descr_with_context;
     /*
      * The casting implementation (ArrayMethod) to convert between two
      * instances of this DType, stored explicitly for fast access:
@@ -109,7 +111,7 @@ typedef struct {
 
 // This must be updated if new slots before within_dtype_castingimpl
 // are added
-#define NPY_NUM_DTYPE_SLOTS 12
+#define NPY_NUM_DTYPE_SLOTS 13
 #define NPY_NUM_DTYPE_PYARRAY_ARRFUNCS_SLOTS 22
 #define NPY_DT_MAX_ARRFUNCS_SLOT \
   NPY_NUM_DTYPE_PYARRAY_ARRFUNCS_SLOTS + _NPY_DT_ARRFUNCS_OFFSET

@@ -58,6 +58,13 @@ sfloat_default_descr(PyArray_DTypeMeta *NPY_UNUSED(cls))
 
 
 static PyArray_Descr *
+sfloat_ensure_canonical(PyArray_Descr *descr)
+{
+    return (PyArray_Descr *)Py_NewRef(descr);
+}
+
+
+static PyArray_Descr *
 sfloat_discover_from_pyobject(PyArray_DTypeMeta *cls, PyObject *NPY_UNUSED(obj))
 {
     return sfloat_default_descr(cls);
@@ -126,6 +133,20 @@ sfloat_setitem(PyArray_Descr *descr_, PyObject *obj, char *data)
 }
 
 
+/* Preserve the storage scale only for untyped float callback results. */
+static int
+sfloat_discover_descr_with_context(npy_intp ndescrs,
+        PyArray_Descr *const descrs[], PyObject *value,
+        NPY_DTYPE_CONTEXT context, PyArray_Descr **out)
+{
+    if (context != NPY_DTYPE_CONTEXT_RESULT || !PyFloat_CheckExact(value)) {
+        return 0;
+    }
+    *out = PyArray_ResultType(0, NULL, ndescrs, (PyArray_Descr **)descrs);
+    return *out == NULL ? -1 : 1;
+}
+
+
 /* Special DType methods and the descr->f slot storage */
 NPY_DType_Slots sfloat_slots = {
     .discover_descr_from_pyobject = &sfloat_discover_from_pyobject,
@@ -133,7 +154,9 @@ NPY_DType_Slots sfloat_slots = {
     .default_descr = &sfloat_default_descr,
     .common_dtype = &sfloat_common_dtype,
     .common_instance = &sfloat_common_instance,
+    .ensure_canonical = &sfloat_ensure_canonical,
     .setitem = &sfloat_setitem,
+    .discover_descr_with_context = &sfloat_discover_descr_with_context,
     .f = {
         .getitem = (PyArray_GetItemFunc *)&sfloat_getitem,
         .setitem = NULL,

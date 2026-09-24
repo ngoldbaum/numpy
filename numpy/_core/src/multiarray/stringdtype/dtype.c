@@ -173,6 +173,46 @@ na_eq_cmp(PyObject *a, PyObject *b) {
     return ret;
 }
 
+// Share missing-value recognition between assignment and dtype inference.
+static int
+stringdtype_is_na(PyArray_StringDTypeObject *descr, PyObject *obj)
+{
+    int na_cmp = na_eq_cmp(obj, descr->na_object);
+    if (na_cmp != 0 || !descr->has_nan_na) {
+        return na_cmp;
+    }
+    return pyobj_is_nan_na(obj);
+}
+
+
+static int
+stringdtype_discover_descr_with_context(npy_intp ndescrs,
+        PyArray_Descr *const descrs[], PyObject *value,
+        NPY_DTYPE_CONTEXT NPY_UNUSED(context), PyArray_Descr **out)
+{
+    /* Only StringDType loses its descriptor through its Python str scalar. */
+    if (NPY_DTYPE(descrs[0]) != &PyArray_StringDType) {
+        return 0;
+    }
+    for (npy_intp i = 0; i < ndescrs; i++) {
+        int matches = PyUnicode_CheckExact(value);
+        if (!matches) {
+            matches = stringdtype_is_na(
+                    (PyArray_StringDTypeObject *)descrs[i], value);
+            if (matches < 0) {
+                return -1;
+            }
+        }
+        if (matches) {
+            *out = PyArray_ResultType(
+                    0, NULL, ndescrs, (PyArray_Descr **)descrs);
+            return *out == NULL ? -1 : 1;
+        }
+    }
+    return 0;
+}
+
+
 // sets the logical rules for determining equality between dtype instances
 static int
 _eq_comparison(int scoerce, int ocoerce, PyObject *sna, PyObject *ona)
@@ -380,16 +420,9 @@ stringdtype_setitem(PyArray_StringDTypeObject *descr, PyObject *obj, char **data
 
     // We need the result of the comparison before packing below, but cannot
     // use functions requiring the GIL when the allocator is acquired.
-    int na_cmp = na_eq_cmp(obj, na_object);
+    int na_cmp = stringdtype_is_na(descr, obj);
     if (na_cmp == -1) {
         return -1;
-    }
-
-    if (!na_cmp && descr->has_nan_na) {
-        na_cmp = pyobj_is_nan_na(obj);
-        if (na_cmp < 0) {
-            return -1;
-        }
     }
 
     if (na_object != NULL && na_cmp) {
@@ -772,6 +805,8 @@ static PyType_Slot PyArray_StringDType_Slots[] = {
         {NPY_DT_PyArray_ArrFuncs_argmin, &argmin},
         {NPY_DT_get_clear_loop, &stringdtype_get_clear_loop},
         {NPY_DT_finalize_descr, &stringdtype_finalize_descr},
+        {_NPY_DT_discover_descr_with_context,
+         &stringdtype_discover_descr_with_context},
         {_NPY_DT_is_known_scalar_type, &stringdtype_is_known_scalar_type},
         {0, NULL}};
 

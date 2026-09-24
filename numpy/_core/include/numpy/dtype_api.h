@@ -431,6 +431,8 @@ typedef int (PyArrayMethod_PromoterFunction)(PyObject *ufunc,
 #define NPY_DT_get_fill_zero_loop 10
 #define NPY_DT_finalize_descr 11
 #define NPY_DT_get_constant 12
+// Experimental contextual discovery for Python operands and callback results.
+#define _NPY_DT_discover_descr_with_context 13
 
 // These PyArray_ArrFunc slots will be deprecated and replaced eventually
 // getitem and setitem can be defined as a performance optimization;
@@ -539,6 +541,23 @@ typedef PyArray_Descr *(PyArrayDTypeMeta_EnsureCanonical)(PyArray_Descr *dtype);
  * views and the descriptor returned by this function is attached to the array.
  */
 typedef PyArray_Descr *(PyArrayDTypeMeta_FinalizeDescriptor)(PyArray_Descr *dtype);
+
+/* Private, experimental contexts for descriptor discovery. */
+typedef enum {
+    NPY_DTYPE_CONTEXT_OPERAND,
+    NPY_DTYPE_CONTEXT_RESULT,
+    NPY_DTYPE_CONTEXT_SEQUENCE_ELEMENT,
+} NPY_DTYPE_CONTEXT;
+
+/*
+ * Called with the GIL held and a nonempty array of borrowed descriptors of
+ * this DType.  Return 1 with a new descriptor reference in *out, 0 to decline,
+ * or -1 with an exception set.  On decline/error leave *out NULL.  Do not
+ * mutate the value or descriptors, or depend on the descriptors' order.
+ */
+typedef int (PyArrayDTypeMeta_DiscoverDescrWithContext)(
+        npy_intp ndescrs, PyArray_Descr *const descrs[], PyObject *value,
+        NPY_DTYPE_CONTEXT context, PyArray_Descr **out);
 
 /*
  * Constants that can be queried and used e.g. by reducing identities defaults.
