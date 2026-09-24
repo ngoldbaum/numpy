@@ -660,6 +660,16 @@ def unique_values(x):
     )
 
 
+def _setop_inputs(ar1, ar2, *, subok=True, preserve_scalars=False):
+    """Discover operands together before conversion or deduplication."""
+    conv = _array_converter(ar1, ar2)
+    # concatenate already handles scalars. Preserve those whose contextual
+    # discovery declined, including strings destined for an object array.
+    return conv.as_arrays(
+        subok=subok, with_context=True,
+        pyscalars="preserve_all" if preserve_scalars else "convert")
+
+
 def _intersect1d_dispatcher(
         ar1, ar2, assume_unique=None, return_indices=None):
     return (ar1, ar2)
@@ -721,8 +731,7 @@ def intersect1d(ar1, ar2, assume_unique=False, return_indices=False):
     (array([1, 2, 4]), array([1, 2, 4]), array([1, 2, 4]))
 
     """
-    ar1 = np.asanyarray(ar1)
-    ar2 = np.asanyarray(ar2)
+    ar1, ar2 = _setop_inputs(ar1, ar2)
 
     if not assume_unique:
         if return_indices:
@@ -792,6 +801,7 @@ def setxor1d(ar1, ar2, assume_unique=False):
     array([1, 4, 5, 7])
 
     """
+    ar1, ar2 = _setop_inputs(ar1, ar2, preserve_scalars=assume_unique)
     if not assume_unique:
         ar1 = unique(ar1)
         ar2 = unique(ar2)
@@ -1119,7 +1129,8 @@ def isin(element, test_elements, assume_unique=False, invert=False, *,
     array([[False,  True],
            [ True, False]])
     """
-    element = np.asarray(element)
+    element, test_elements = _setop_inputs(
+        element, test_elements, subok=False)
     return _isin(element, test_elements, assume_unique=assume_unique,
                  invert=invert, kind=kind).reshape(element.shape)
 
@@ -1158,6 +1169,7 @@ def union1d(ar1, ar2):
     >>> reduce(np.union1d, ([1, 3, 4, 3], [3, 1, 2, 1], [6, 3, 4, 2]))
     array([1, 2, 3, 4, 6])
     """
+    ar1, ar2 = _setop_inputs(ar1, ar2, preserve_scalars=True)
     return unique(np.concatenate((ar1, ar2), axis=None))
 
 
@@ -1198,6 +1210,7 @@ def setdiff1d(ar1, ar2, assume_unique=False):
     array([1, 2])
 
     """
+    ar1, ar2 = _setop_inputs(ar1, ar2)
     if assume_unique:
         ar1 = np.asarray(ar1).ravel()
     else:

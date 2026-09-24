@@ -589,6 +589,20 @@ class TestSetOps:
 
         assert_array_equal([], union1d([], []))
 
+        a = np.array([1], dtype=np.float32)
+        assert_array_equal(union1d(a, 2.0),
+                           np.array([1, 2], dtype=np.float32), strict=True)
+        with pytest.raises(OverflowError):
+            union1d(np.array([1], dtype=np.int8), 300)
+
+    def test_union1d_object_scalar(self):
+        value = "x\0"
+        a = np.array([value[:1]], dtype=object)
+        expected = np.array([value[:1], value], dtype=object)
+        assert_array_equal(union1d(a, value), expected, strict=True)
+        assert_array_equal(setxor1d(a, value, assume_unique=True), expected,
+                           strict=True)
+
     def test_setdiff1d(self):
         a = np.array([6, 5, 4, 7, 1, 2, 7, 4])
         b = np.array([2, 4, 3, 3, 2, 1, 5])

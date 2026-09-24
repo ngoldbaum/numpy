@@ -3454,6 +3454,57 @@ def test_indexing_ops_distinct_allocators():
     assert_array_equal(np.append(a, b), np.append(a_obj, b_obj))
 
 
+def test_isin_scalar():
+    dtype = StringDType(coerce=False)
+    value = "x\0"
+    a = np.array(["x", value], dtype=dtype)
+    assert_array_equal(np.isin(a, value), [False, True])
+    assert_array_equal(np.isin(a, value, invert=True), [True, False])
+    assert_array_equal(np.isin(value, a), np.array(True))
+    assert_array_equal(np.isin(a, [value]), [False, True])
+    assert_array_equal(np.isin([[value]], a), [[True]])
+    # Explicitly typed strings keep their own interpretation of trailing NULs.
+    fixed = np.array(value, dtype="U2")
+    assert_array_equal(np.isin(a, fixed), [True, False])
+
+
+@pytest.mark.parametrize("func, expected", [
+    (np.intersect1d, ["x\0"]),
+    (np.setdiff1d, ["x", "y"]),
+    (np.setxor1d, ["x", "y"]),
+    (np.union1d, ["x", "x\0", "y"]),
+])
+def test_setops_scalar(func, expected):
+    dtype = StringDType(na_object=np.nan, coerce=False)
+    value = "x\0"
+    a = np.array(["x", value, "y"], dtype=dtype)
+    expected = np.array(expected, dtype=dtype)
+    assert_array_equal(func(a, value), expected, strict=True)
+    reverse_expected = a[:0] if func is np.setdiff1d else expected
+    assert_array_equal(func(value, a), reverse_expected, strict=True)
+    if func is not np.union1d:
+        assert_array_equal(func(a, [value]), expected, strict=True)
+        assert_array_equal(func([value], a), reverse_expected, strict=True)
+        assert_array_equal(func(a, value, assume_unique=True), expected,
+                           strict=True)
+    else:
+        # Use a new value so dropping its trailing NUL changes the union.
+        sequence = ["z\0"]
+        sequence_expected = np.array([*expected, *sequence], dtype=dtype)
+        for inputs in [(a, sequence), (sequence, a)]:
+            assert_array_equal(func(*inputs), sequence_expected, strict=True)
+        # A bare NaN is the configured missing value, not a float operand.
+        result = func(a, float("nan"))
+        assert result.dtype == dtype
+        assert_array_equal(result[:-1], a, strict=True)
+        assert np.isnan(result[-1:])[0]
+    if func is np.intersect1d:
+        result, i, j = func(a, value, return_indices=True)
+        assert_array_equal(result, expected, strict=True)
+        assert_array_equal(i, [1])
+        assert_array_equal(j, [0])
+
+
 def test_setops_distinct_allocators():
     vals = [f"{'v' * 16}{i:04d}" for i in range(90)]
     a = np.array(vals[:60], dtype="T")
