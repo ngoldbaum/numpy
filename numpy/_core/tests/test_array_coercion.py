@@ -354,7 +354,7 @@ class TestScalarDiscovery:
         expected = np.array(pyscalar)
         assert_array_equal(res, expected)
 
-    @pytest.mark.parametrize("dtype_char", np.typecodes["All"])
+    @pytest.mark.parametrize("dtype_char", np.typecodes["All"] + "T")
     def test_default_dtype_instance(self, dtype_char):
         if dtype_char in "SU":
             dtype = np.dtype(dtype_char + "1")

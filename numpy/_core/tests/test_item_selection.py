@@ -102,7 +102,7 @@ class TestTake:
 
 
 class TestPutMask:
-    @pytest.mark.parametrize("dtype", list(np.typecodes["All"]) + ["i,O"])
+    @pytest.mark.parametrize("dtype", list(np.typecodes["All"] + "T") + ["i,O"])
     def test_simple(self, dtype):
         if dtype.lower() == "m":
             dtype += "8[ns]"
@@ -119,7 +119,7 @@ class TestPutMask:
         assert_array_equal(arr[mask], vals[:len(mask)][mask])
         assert_array_equal(arr[~mask], zeros[~mask])
 
-    @pytest.mark.parametrize("dtype", list(np.typecodes["All"])[1:] + ["i,O"])
+    @pytest.mark.parametrize("dtype", list(np.typecodes["All"] + "T")[1:] + ["i,O"])
     @pytest.mark.parametrize("mode", ["raise", "wrap", "clip"])
     def test_empty(self, dtype, mode):
         arr = np.zeros(1000, dtype=dtype)
@@ -132,7 +132,7 @@ class TestPutMask:
 
 
 class TestPut:
-    @pytest.mark.parametrize("dtype", list(np.typecodes["All"])[1:] + ["i,O"])
+    @pytest.mark.parametrize("dtype", list(np.typecodes["All"] + "T")[1:] + ["i,O"])
     @pytest.mark.parametrize("mode", ["raise", "wrap", "clip"])
     def test_simple(self, dtype, mode):
         if dtype.lower() == "m":
@@ -167,7 +167,7 @@ class TestPut:
         untouched[indx] = False
         assert_array_equal(arr[untouched], zeros[:untouched.sum()])
 
-    @pytest.mark.parametrize("dtype", list(np.typecodes["All"])[1:] + ["i,O"])
+    @pytest.mark.parametrize("dtype", list(np.typecodes["All"] + "T")[1:] + ["i,O"])
     @pytest.mark.parametrize("mode", ["raise", "wrap", "clip"])
     def test_empty(self, dtype, mode):
         arr = np.zeros(1000, dtype=dtype)

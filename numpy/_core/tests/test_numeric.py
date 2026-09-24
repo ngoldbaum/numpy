@@ -1811,7 +1811,7 @@ class TestNonzero:
             assert_equal(a.dtype, b.dtype, err_msg=err_msg)
             assert_equal(a, b, err_msg=err_msg)
 
-        for dt in np.typecodes['All']:
+        for dt in np.typecodes['All'] + "T":
             err_msg = msg % (np.dtype(dt).name,)
 
             if dt != 'V':

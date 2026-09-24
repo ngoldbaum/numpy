@@ -1140,7 +1140,7 @@ class TestCreation:
 
     def test_zeros_like_like_zeros(self):
         # test zeros_like returns the same as zeros
-        for c in np.typecodes['All']:
+        for c in np.typecodes['All'] + "T":
             if c == 'V':
                 continue
             d = np.zeros((3, 3), dtype=c)
@@ -3625,14 +3625,14 @@ class TestMethods:
         assert_(not isinstance(a.searchsorted(b, 'left', s), A))
         assert_(not isinstance(a.searchsorted(b, 'right', s), A))
 
-    @pytest.mark.parametrize("dtype", np.typecodes["All"])
+    @pytest.mark.parametrize("dtype", np.typecodes["All"] + "T")
     def test_argpartition_out_of_range(self, dtype):
         # Test out of range values in kth raise an error, gh-5469
         d = np.arange(10).astype(dtype=dtype)
         assert_raises(ValueError, d.argpartition, 10)
         assert_raises(ValueError, d.argpartition, -11)
 
-    @pytest.mark.parametrize("dtype", np.typecodes["All"])
+    @pytest.mark.parametrize("dtype", np.typecodes["All"] + "T")
     def test_partition_out_of_range(self, dtype):
         # Test out of range values in kth raise an error, gh-5469
         d = np.arange(10).astype(dtype=dtype)
@@ -9548,9 +9548,13 @@ class TestNewBufferProtocol:
         self._check_roundtrip(x)
 
     def test_roundtrip_single_types(self):
-        for typ in np.typecodes["All"]:
+        for typ in np.typecodes["All"] + "T":
             dtype = np.dtype(typ)
 
+            if dtype.char == 'T':
+                with pytest.raises(ValueError, match="cannot include dtype"):
+                    memoryview(np.zeros(4, dtype=dtype))
+                continue
             if dtype.char in 'Mm':
                 # datetimes cannot be used in buffers
                 continue
@@ -9887,7 +9891,7 @@ class TestArrayCreationCopyArgument:
 
     def test_scalars(self):
         # Test both numpy and python scalars
-        for dtype in np.typecodes["All"]:
+        for dtype in np.typecodes["All"] + "T":
             arr = np.zeros((), dtype=dtype)
             scalar = arr[()]
             pyscalar = arr.item(0)

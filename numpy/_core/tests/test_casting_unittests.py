@@ -816,7 +816,7 @@ class TestCasting:
         _, _, view_off = cast._resolve_descriptors((from_dt, to_dt))
         assert view_off == expected_off
 
-    @pytest.mark.parametrize("dtype", np.typecodes["All"])
+    @pytest.mark.parametrize("dtype", np.typecodes["All"] + "T")
     def test_object_casts_NULL_None_equivalence(self, dtype):
         # None to <other> casts may succeed or fail, but a NULL'ed array must
         # behave the same as one filled with None's.
@@ -976,6 +976,6 @@ class TestCasting:
 
 def test_print_new_cast_table(capsys):
     # print_cancast_table first: it registers casts with an error-code level.
-    print_cancast_table(np.typecodes['All'])
+    print_cancast_table(np.typecodes['All'] + "T")
     print_new_cast_table(can_cast=True, legacy=True, flags=True)
     assert capsys.readouterr().out

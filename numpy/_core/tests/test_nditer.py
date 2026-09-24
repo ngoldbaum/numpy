@@ -1541,8 +1541,8 @@ def test_iter_copy():
     assert_equal([x[()] for x in j], a.ravel(order='F'))
 
 
-@pytest.mark.parametrize("dtype", np.typecodes["All"])
-@pytest.mark.parametrize("loop_dtype", np.typecodes["All"])
+@pytest.mark.parametrize("dtype", np.typecodes["All"] + "T")
+@pytest.mark.parametrize("loop_dtype", np.typecodes["All"] + "T")
 @pytest.mark.filterwarnings(
     "ignore::numpy.exceptions.ComplexWarning",
 )
@@ -1559,8 +1559,11 @@ def test_iter_copy_casts(dtype, loop_dtype):
     elif np.dtype(loop_dtype).itemsize == 0:
         loop_dtype = loop_dtype + "50"
 
-    # Make things a bit more interesting by requiring a byte-swap as well:
-    arr = np.ones(1000, dtype=np.dtype(dtype).newbyteorder())
+    # Require a byte-swap where the dtype supports byte order.
+    dtype = np.dtype(dtype)
+    if dtype.byteorder != "|":
+        dtype = dtype.newbyteorder()
+    arr = np.ones(1000, dtype=dtype)
     try:
         expected = arr.astype(loop_dtype)
     except Exception:

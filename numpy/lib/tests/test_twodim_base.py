@@ -385,7 +385,7 @@ def test_tril_triu_with_inf():
 def test_tril_triu_dtype():
     # Issue 4916
     # tril and triu should return the same dtype as input
-    for c in np.typecodes['All']:
+    for c in np.typecodes['All'] + "T":
         if c == 'V':
             continue
         arr = np.zeros((3, 3), dtype=c)

@@ -1403,7 +1403,7 @@ class TestPickling:
         self.check_pickling(dt)
 
     @pytest.mark.parametrize("DType",
-        [type(np.dtype(t)) for t in np.typecodes['All']] +
+        [type(np.dtype(t)) for t in np.typecodes['All'] + "T"] +
         [type(np.dtype(rational)), type(np.dtype(rational2)), np.dtype])
     def test_pickle_dtype_class(self, DType):
         # Check that DTypes (the classes/types) roundtrip when pickling
@@ -1412,7 +1412,7 @@ class TestPickling:
             assert roundtrip_DType is DType
 
     @pytest.mark.parametrize("dt",
-        [np.dtype(t) for t in np.typecodes['All']] +
+        [np.dtype(t) for t in np.typecodes['All'] + "T"] +
         [np.dtype(rational), np.dtype(rational2)])
     def test_pickle_dtype(self, dt):
         # Check that dtype instances roundtrip when pickling and that pickling
@@ -1735,7 +1735,7 @@ class TestFromDTypeProtocol:
 
 class TestDTypeClasses:
     @pytest.mark.parametrize(
-        "dtype", list(np.typecodes['All']) + [rational, rational2])
+        "dtype", list(np.typecodes['All'] + "T") + [rational, rational2])
     def test_basic_dtypes_subclass_properties(self, dtype):
         # Note: Except for the isinstance and type checks, these attributes
         #       are considered currently private and may change.
@@ -1749,6 +1749,8 @@ class TestDTypeClasses:
                 # int and that is long...
                 dt_name += "c"
             sc_name = dtype.type.__name__
+            if dtype.type is str:
+                sc_name = "string"
             assert dt_name == sc_name.strip("_")
             assert type(dtype).__module__ == "numpy.dtypes"
 
@@ -1763,7 +1765,10 @@ class TestDTypeClasses:
         # which are more than just storage information, these would need to be
         # given when creating a dtype:
         parametric = (np.void, np.str_, np.bytes_, np.datetime64, np.timedelta64)
-        if dtype.type not in parametric:
+        if dtype.type is str:
+            assert type(dtype)._parametric
+            assert type(dtype)() == dtype
+        elif dtype.type not in parametric:
             assert not type(dtype)._parametric
             assert type(dtype)() is dtype
         else:
@@ -1780,7 +1785,7 @@ class TestDTypeClasses:
         assert np.dtype._abstract
 
     def test_is_numeric(self):
-        all_codes = set(np.typecodes['All'])
+        all_codes = set(np.typecodes['All'] + "T")
         numeric_codes = set(np.typecodes['AllInteger'] +
                             np.typecodes['AllFloat'] + '?')
         non_numeric_codes = all_codes - numeric_codes
@@ -2103,7 +2108,7 @@ class TestClassGetItem:
         assert isinstance(alias, types.GenericAlias)
         assert alias.__origin__ is np.dtype
 
-    @pytest.mark.parametrize("code", np.typecodes["All"])
+    @pytest.mark.parametrize("code", np.typecodes["All"] + "T")
     def test_dtype_subclass(self, code: str) -> None:
         cls = type(np.dtype(code))
         alias = cls[Any]

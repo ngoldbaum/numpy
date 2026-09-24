@@ -3026,7 +3026,7 @@ class TestDateTime:
 
     def test_isnat_error(self):
         # Test that only datetime dtype arrays are accepted
-        for t in np.typecodes["All"]:
+        for t in np.typecodes["All"] + "T":
             if t in np.typecodes["Datetime"]:
                 continue
             assert_raises(TypeError, np.isnat, np.zeros(10, t))
