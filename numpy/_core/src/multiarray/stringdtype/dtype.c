@@ -549,7 +549,7 @@ _compare(void *a, void *b, PyArray_StringDTypeObject *descr_a,
         if (has_null && !has_string_na) {
             if (has_nan_na) {
                 if (a_is_null) {
-                    return 1;
+                    return b_is_null ? 0 : 1;
                 }
                 else if (b_is_null) {
                     return -1;
