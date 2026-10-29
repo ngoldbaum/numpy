@@ -890,6 +890,8 @@ _umath_tests_mtargets = mod_features.multi_targets(
   c_args: py_limited_api_args,
 )
 
+reduction_tests_src = ['src/umath/_reduction_loop_tests.c', 'src/common/gil_utils.c']
+
 # [module name, sources, libraries to link with, limited API version ('' to
 # build against the full API)]
 test_modules_src = [
@@ -902,7 +904,7 @@ test_modules_src = [
   ['_rational_tests', 'src/umath/_rational_tests.c', [], py_limited_api],
   ['_struct_ufunc_tests', 'src/umath/_struct_ufunc_tests.c', [], py_limited_api],
   ['_operand_flag_tests', 'src/umath/_operand_flag_tests.c', [], py_limited_api],
-  ['_reduction_loop_tests', 'src/umath/_reduction_loop_tests.c', [], py_limited_api],
+  ['_reduction_loop_tests', reduction_tests_src, [], py_limited_api],
 ]
 foreach gen: test_modules_src
   py.extension_module(gen[0],

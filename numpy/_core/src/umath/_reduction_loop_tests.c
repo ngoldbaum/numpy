@@ -24,6 +24,8 @@
 #include "numpy/ufuncobject.h"
 #include "numpy/dtype_api.h"
 #include "numpy/npy_math.h"
+#include "npy_float_to_int.h"
+#include "gil_utils.h"
 
 
 static inline double
@@ -227,6 +229,18 @@ object_minimummaximum_get_reduction_loop(
  * reduceat seed it by casting the first float64 element of the reduction.
  */
 static int
+double_to_intp(double value, npy_intp *out)
+{
+    if (npy_double_to_intp(value, out) < 0) {
+        npy_gil_error(PyExc_ValueError,
+                "maximum is NaN or out of the intp range");
+        return -1;
+    }
+    return 0;
+}
+
+
+static int
 double_minimum_intp_maximum_loop(PyArrayMethod_Context *NPY_UNUSED(context),
         char *const data[], npy_intp const dimensions[],
         npy_intp const strides[], NpyAuxData *NPY_UNUSED(auxdata))
@@ -239,7 +253,9 @@ double_minimum_intp_maximum_loop(PyArrayMethod_Context *NPY_UNUSED(context),
         double a = *(double *)in1;
         double b = *(double *)in2;
         *(double *)out1 = nan_min(a, b);
-        *(npy_intp *)out2 = (npy_intp)nan_max(a, b);
+        if (double_to_intp(nan_max(a, b), (npy_intp *)out2) < 0) {
+            return -1;
+        }
         in1 += strides[0]; in2 += strides[1];
         out1 += strides[2]; out2 += strides[3];
     }
@@ -259,7 +275,10 @@ double_minimum_intp_maximum_reduce_loop(
 
     for (npy_intp i = 0; i < n; i++) {
         double val = *(double *)x;
-        npy_intp ival = (npy_intp)val;
+        npy_intp ival;
+        if (double_to_intp(val, &ival) < 0) {
+            return -1;
+        }
         npy_intp cur_max = *(npy_intp *)acc_max;
         *(double *)out_min = nan_min(*(double *)acc_min, val);
         *(npy_intp *)out_max = cur_max >= ival ? cur_max : ival;
