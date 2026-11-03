@@ -542,7 +542,7 @@ npy_quicksort_impl(void *start, npy_intp num, void *varr,
 
     for (;;) {
         if (NPY_UNLIKELY(cdepth < 0)) {
-            npy_heapsort(pl, (pr - pl) / elsize + 1, varr);
+            npy_heapsort_impl(pl, (pr - pl) / elsize + 1, varr, elsize, cmp);
             goto stack_pop;
         }
         while (pr - pl > SMALL_QUICKSORT * elsize) {
@@ -651,7 +651,7 @@ npy_aquicksort_impl(void *vv, npy_intp *tosort, npy_intp num, void *varr,
 
     for (;;) {
         if (NPY_UNLIKELY(cdepth < 0)) {
-            npy_aheapsort(vv, pl, pr - pl + 1, varr);
+            npy_aheapsort_impl(vv, pl, pr - pl + 1, varr, elsize, cmp);
             goto stack_pop;
         }
         while ((pr - pl) > SMALL_QUICKSORT) {

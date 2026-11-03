@@ -124,10 +124,14 @@ NPY_NO_EXPORT int npy_quicksort_impl(void *start, npy_intp num, void *varr,
                                      npy_intp elsize, PyArray_CompareFunc *cmp);
 NPY_NO_EXPORT int npy_mergesort_impl(void *start, npy_intp num, void *varr,
                                      npy_intp elsize, PyArray_CompareFunc *cmp);
+NPY_NO_EXPORT int npy_heapsort_impl(void *start, npy_intp num, void *varr,
+                                    npy_intp elsize, PyArray_CompareFunc *cmp);
 NPY_NO_EXPORT int npy_aquicksort_impl(void *vv, npy_intp *tosort, npy_intp num, void *varr,
                                       npy_intp elsize, PyArray_CompareFunc *cmp);
 NPY_NO_EXPORT int npy_amergesort_impl(void *v, npy_intp *tosort, npy_intp num, void *varr,
                                       npy_intp elsize, PyArray_CompareFunc *cmp);
+NPY_NO_EXPORT int npy_aheapsort_impl(void *vv, npy_intp *tosort, npy_intp n, void *varr,
+                                     npy_intp elsize, PyArray_CompareFunc *cmp);
 
 
 #ifdef __cplusplus
