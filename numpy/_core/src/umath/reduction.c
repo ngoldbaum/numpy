@@ -449,8 +449,8 @@ PyUFunc_ReduceWrapper(PyArrayMethod_Context *context,
     }
     Py_INCREF(result);
 
-    if (initial_buf != NULL && PyDataType_REFCHK(PyArray_DESCR(result))) {
-        PyArray_ClearBuffer(PyArray_DESCR(result), initial_buf, 0, 1, 1);
+    if (initial_buf != NULL && PyDataType_REFCHK(op_dtypes[0])) {
+        PyArray_ClearBuffer(op_dtypes[0], initial_buf, 0, 1, 1);
     }
     PyMem_FREE(initial_buf);
     NPY_AUXDATA_FREE(auxdata);
