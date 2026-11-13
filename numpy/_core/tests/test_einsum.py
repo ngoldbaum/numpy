@@ -170,6 +170,17 @@ class TestEinsum:
         assert_raises(ValueError, np.einsum, "i->i",
                       np.arange(6).reshape(-1, 1), optimize=do_opt, order='d')
 
+    def test_einsum_unsupported_dtype(self):
+        out = np.ones((), dtype="m8[s]")
+        with pytest.raises(TypeError, match="invalid data type"):
+            np.einsum("i->", np.ones(3, dtype="m8[s]"), out=out)
+        assert out == np.timedelta64(1, "s")
+
+    def test_einsum_writeback_error(self):
+        a = np.full(3, 100, dtype=np.int8)
+        with pytest.raises(OverflowError):
+            np.einsum("i,i->i", a.astype(object), a, out=a, casting="unsafe")
+
     def test_einsum_object_errors(self):
         # Exceptions created by object arithmetic should
         # successfully propagate
