@@ -7,6 +7,8 @@ extern "C" {
 
 PyObject* array__unique_hash(PyObject *NPY_UNUSED(dummy),
                              PyObject *const *args, Py_ssize_t len_args, PyObject *kwnames);
+PyObject* array__unique_hash_all(PyObject *NPY_UNUSED(dummy),
+                                 PyObject *const *args, Py_ssize_t len_args, PyObject *kwnames);
 
 #ifdef __cplusplus
 }

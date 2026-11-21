@@ -5087,6 +5087,9 @@ static struct PyMethodDef array_module_methods[] = {
         METH_VARARGS, "unsafe testing helper to swap out dlpack registry"},
     {"_unique_hash",  (PyCFunction)array__unique_hash,
         METH_FASTCALL | METH_KEYWORDS, "Collect unique values via a hash map."},
+    {"_unique_hash_all",  (PyCFunction)array__unique_hash_all,
+        METH_FASTCALL | METH_KEYWORDS,
+        "Collect unique values with their indices, inverse and counts."},
     {NULL, NULL, 0, NULL}                /* sentinel */
 };
 
